@@ -1,0 +1,214 @@
+=====================================================================
+TradeAI — Multi-Agent Stock Prediction System
+Plan using Google TimesFM-3.0 + Gemini
+=====================================================================
+
+-----------------------------------------------------------------
+1. GOAL
+-----------------------------------------------------------------
+Build "TradeAI": given a company/ticker, predict a future price
+graph using:
+  - Google TimesFM-3.0  -> numeric time-series forecasting
+  - Gemini               -> reasoning, news/sentiment analysis,
+                             fusion of signals, explanation
+  - A multi-agent system -> coordinates the above into one pipeline
+
+Important licensing note:
+TimesFM-3.0's public weights (released Aug 31, 2026) are licensed
+for NON-COMMERCIAL, NON-PRODUCTION use only. Fine for a prototype
+or research project. For a live/production trading product, use
+one of:
+  - A commercial license from Google (if/when offered)
+  - TimesFM-2.5 (Apache-2.0, deployable in production)
+  - A self-trained forecasting model as the production fallback
+
+-----------------------------------------------------------------
+2. HIGH-LEVEL FLOW (text diagram)
+-----------------------------------------------------------------
+
+                [ User request: ticker, horizon ]
+                              |
+                              v
+                    [ Orchestrator Agent ]
+                 (plans workflow, routes agents,
+                  retries/timeouts, assembles result)
+                              |
+                              v
+                  [ Data Collection Agents ]
+        - Market Data Agent: OHLCV, volume, fundamentals
+        - News & Sentiment Agent (Gemini): news, filings,
+          earnings calls -> sentiment score + key events
+                              |
+                              v
+                   [ Forecasting Agents ]
+        - Quant Forecaster (TimesFM-3.0): numeric forecast +
+          quantile bands (10th-90th percentile), can use news
+          signals as covariates (multivariate support)
+        - Reasoning Agent (Gemini): checks if the numeric trend
+          makes sense given news/sector/macro context
+                              |
+                              v
+                 [ Fusion & Risk Agent (Gemini) ]
+        - Reconciles numeric forecast with qualitative reasoning
+        - Produces final prediction + confidence level
+        - Flags risk (data quality, model licensing, volatility)
+                              |
+                              v
+                    [ Output Agent ]
+        - Renders chart (candlestick + forecast band)
+        - Produces plain-language explanation for the user
+                              |
+                              v
+                    [ User sees graph + explanation ]
+
+-----------------------------------------------------------------
+3. AGENT RESPONSIBILITIES (detailed)
+-----------------------------------------------------------------
+
+3.1 Orchestrator Agent
+   - Entry point for every request.
+   - Parses user input (ticker, forecast horizon, risk tolerance).
+   - Decides which agents to call and in what order.
+   - Handles retries if an agent fails or returns low confidence.
+   - Assembles the final response from all agent outputs.
+   - Best implemented as a state graph (see framework section).
+
+3.2 Market Data Agent
+   - Fetches historical OHLCV (open/high/low/close/volume) and
+     fundamentals for the requested ticker.
+   - Cleans and normalizes data into the format TimesFM-3 expects
+     (regular time steps, handled missing values/splits/dividends).
+
+3.3 News & Sentiment Agent (Gemini-powered)
+   - Uses Gemini (with web search / news API access) to read
+     recent news, earnings call transcripts, and SEC/exchange
+     filings.
+   - Extracts a sentiment score and key events (e.g. "earnings
+     beat", "guidance cut", "CEO change", "regulatory action").
+   - Output becomes an optional covariate for the forecaster and
+     context for the reasoning agent.
+
+3.4 Quantitative Forecaster (TimesFM-3.0)
+   - Zero-shot time-series forecasting model (330M params,
+     decoder-only transformer, trained on 1T+ time points).
+   - Takes the cleaned price series (and optionally covariates
+     from the sentiment agent, since TimesFM-3 is natively
+     multivariate) and produces:
+       - point forecast for the chosen horizon
+       - quantile/probabilistic bands (10th-90th percentile)
+   - Runs cheaply — under 2GB VRAM, can run on CPU.
+
+3.5 Reasoning Agent (Gemini)
+   - Takes the numeric forecast and the news/sentiment context.
+   - Checks for consistency: does the statistical trend make
+     sense given current events, sector trends, and macro
+     conditions?
+   - Surfaces caveats a pure numeric model would miss (e.g. an
+     upcoming earnings date, a pending merger, a sector-wide
+     selloff).
+
+3.6 Fusion & Risk Agent (Gemini)
+   - Merges the numeric forecast and the qualitative reasoning
+     into one final prediction with a confidence level.
+   - Applies guardrails against over-confident predictions.
+   - Flags risk factors, including the TimesFM-3 licensing
+     limitation if the system is meant for real trading decisions.
+
+3.7 Output Agent
+   - Formats the final result into:
+       - a chart (historical price + forecast band)
+       - a plain-language written explanation
+   - Returns everything to the user interface.
+
+-----------------------------------------------------------------
+4. RECOMMENDED AGENT ORCHESTRATION FRAMEWORK
+-----------------------------------------------------------------
+
+- LangGraph (recommended, best fit)
+    Models this exact pattern — parallel branches merging into a
+    fusion step with conditional risk checks — as a state graph.
+    First-class support for calling Gemini and custom tools
+    (e.g. a TimesFM-3 wrapper). Good retry/state handling.
+
+- CrewAI (simpler alternative)
+    Role-based agents ("data collector", "analyst", "risk
+    manager") with less boilerplate than LangGraph, but less
+    control over conditional branching.
+
+- Google Agent Development Kit (ADK)
+    Purpose-built for multi-agent Gemini workflows; integrates
+    natively with Vertex AI if you want to host TimesFM-3 there
+    instead of self-hosting it.
+
+-----------------------------------------------------------------
+5. FREE SOURCES FOR HISTORICAL / LATEST STOCK DATA
+-----------------------------------------------------------------
+
+General / global markets:
+  - Yahoo Finance (via the "yfinance" Python library)
+      Free, no API key needed, widely used for prototyping.
+      Good OHLCV history, splits/dividends handled.
+      Unofficial (scrapes Yahoo endpoints) — can break/rate-limit.
+
+  - Alpha Vantage (free tier)
+      Official API, free API key, ~25 requests/day on the free
+      tier as of 2026 (was more generous historically — check
+      current limits before relying on it). Good documentation,
+      offers an MCP server for AI-agent access.
+      https://www.alphavantage.co/documentation/
+
+  - Finnhub (free tier)
+      Good for quick prototyping across stocks, forex, and
+      crypto. Free tier has rate limits.
+      https://finnhub.io/
+
+  - Twelve Data (free tier)
+      Free tier with reasonable historical coverage; good for
+      small projects.
+      https://twelvedata.com/
+
+  - Stooq (free, no key required)
+      Simple CSV downloads of historical daily data for many
+      global tickers — good for quick backtesting datasets.
+      https://stooq.com/
+
+  - IEX Cloud
+      Note: IEX Cloud shut down its legacy public API in 2024 —
+      confirm current status before depending on it.
+
+For Indian stocks (NSE/BSE):
+  - NSE India official website (nseindia.com)
+      Free downloadable historical bhavcopy (daily OHLCV) data.
+  - Yahoo Finance India tickers (e.g. "RELIANCE.NS", "TCS.NS")
+      via yfinance — works the same way as US tickers.
+  - nsepy / jugaad-data (open-source Python libraries)
+      Community libraries that wrap NSE's public data endpoints.
+
+Practical recommendation for a prototype:
+  Start with yfinance for bulk historical backfill (free, no
+  key, good for feeding TimesFM-3), and use Alpha Vantage or
+  Finnhub as a secondary/live-data source for the News &
+  Sentiment Agent or for cross-checking prices. All of the above
+  have rate limits on their free tiers, so cache data locally
+  and avoid re-fetching full history on every request.
+
+-----------------------------------------------------------------
+6. SUGGESTED NEXT STEPS
+-----------------------------------------------------------------
+  1. Prototype the Market Data Agent using yfinance for 2-3
+     sample tickers.
+  2. Run TimesFM-3.0 locally (CPU is fine) on that data to
+     validate forecast quality before building the rest.
+  3. Build the News & Sentiment Agent with Gemini + a news API
+     or web search.
+  4. Wire the agents together in LangGraph, starting with a
+     linear pipeline before adding parallel branches.
+  5. Add the Fusion & Risk Agent last, once you can see both
+     the numeric and qualitative outputs side by side.
+  6. Before any production use, resolve the TimesFM-3 licensing
+     question (commercial license, TimesFM-2.5, or a self-
+     trained fallback model).
+
+=====================================================================
+End of plan.
+=====================================================================

@@ -1,0 +1,63 @@
+.app-layout {
+  display: flex;
+  min-height: calc(100vh - var(--header-height) - 32px);
+  position: relative;
+}
+
+.main-content-area {
+  flex: 1;
+  padding: 24px 28px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  overflow-y: auto;
+}
+
+/* Mobile Drawer */
+.mobile-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 2500;
+  display: flex;
+}
+
+.mobile-drawer {
+  width: 280px;
+  height: 100%;
+  background: #090e17;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.drawer-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.drawer-close {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .main-content-area {
+    padding: 16px;
+    padding-bottom: calc(var(--bottom-nav-height) + 24px);
+  }
+}

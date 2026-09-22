@@ -1,0 +1,40 @@
+<!-- When NOT logged in: User ONLY sees the dedicated full-screen Login / Auth Screen -->
+<div *ngIf="!currentUser">
+  <app-login-screen></app-login-screen>
+</div>
+
+<!-- When LOGGED IN: User accesses the entire trading terminal application -->
+<div *ngIf="currentUser">
+  <!-- Global Header with Live Ticker -->
+  <app-header (toggleMobileMenu)="toggleMobileSidebar()"></app-header>
+
+  <div class="app-layout">
+    <!-- Desktop Navigation Sidebar -->
+    <app-nav-menu></app-nav-menu>
+
+    <!-- Mobile Drawer Overlay if opened -->
+    <div class="mobile-drawer-overlay" *ngIf="mobileSidebarOpen()" (click)="toggleMobileSidebar()">
+      <div class="mobile-drawer" (click)="$event.stopPropagation()">
+        <div class="drawer-header">
+          <span class="drawer-title">Trade<strong class="gradient-text">AI</strong></span>
+          <button class="drawer-close" (click)="toggleMobileSidebar()">✕</button>
+        </div>
+        <app-nav-menu></app-nav-menu>
+      </div>
+    </div>
+
+    <!-- Main View Router Outlet -->
+    <main class="main-content-area">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+  <!-- Global Quick Search Dialog Modal (Ctrl + K) -->
+  <app-search-modal></app-search-modal>
+
+  <!-- Global JWT Auth & Switch Modal -->
+  <app-auth-modal></app-auth-modal>
+
+  <!-- Footer -->
+  <app-footer></app-footer>
+</div>

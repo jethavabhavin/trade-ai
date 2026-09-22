@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  db:
+    image: mysql:8.0
+    container_name: tradeai_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: tradeai_db
+      MYSQL_USER: tradeai
+      MYSQL_PASSWORD: password123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword123"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # FastAPI Multi-Agent Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: tradeai_backend
+    restart: unless-stopped
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=tradeai
+      - MYSQL_PASSWORD=password123
+      - MYSQL_DATABASE=tradeai_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-tradeai_super_secret_jwt_key_timesfm_2026_secure}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Angular 22 Cyber-Financial Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: tradeai_frontend
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+    driver: local
+  hf_cache:
+    driver: local

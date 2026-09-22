@@ -1,0 +1,12 @@
+{
+  "name": "tradeai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TradeAI - 9:00 AM AI Market Signals & 7-Day Future Predictions",
+  "scripts": {
+    "start": "npm --prefix frontend start",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test",
+    "backend": ".venv\\Scripts\\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+  }
+}
