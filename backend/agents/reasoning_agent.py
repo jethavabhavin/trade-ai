@@ -23,18 +23,29 @@ class ReasoningAgent(BaseAgent):
     def _call_gemini_api(self, prompt: str) -> Optional[str]:
         if not self.api_key:
             return None
+        
+        def _invoke():
+            try:
+                from google import genai
+                client = genai.Client(api_key=self.api_key)
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                print(f"[{self.name}] Gemini Reasoning call note: {e}")
+            return None
+
         try:
-            from google import genai
-            client = genai.Client(api_key=self.api_key)
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-            if response and response.text:
-                return response.text
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_invoke)
+                return future.result(timeout=4.0)
         except Exception as e:
-            print(f"[{self.name}] Gemini Reasoning call note: {e}")
-        return None
+            print(f"[{self.name}] Gemini Reasoning timeout or note: {e}")
+            return None
 
     def run(self, state: Dict[str, Any]) -> AgentResult:
         symbol = state.get("symbol", "TATASIL")

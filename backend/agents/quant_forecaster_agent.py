@@ -1,4 +1,10 @@
+import warnings
+import logging
 from typing import Dict, Any, List
+
+warnings.filterwarnings("ignore", message=".*unauthenticated requests to the HF Hub.*")
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
 try:
     from backend.agents.base_agent import BaseAgent, AgentResult
     from backend.timesfm_service import timesfm_service

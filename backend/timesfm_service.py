@@ -1,9 +1,27 @@
+import os
 import math
 import time
 import random
+import warnings
+import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import numpy as np
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Silence Hugging Face Hub unauthenticated request rate limit warnings
+warnings.filterwarnings("ignore", message=".*unauthenticated requests to the HF Hub.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub.*")
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+# If HF_TOKEN is specified, set standard environment variable for huggingface_hub
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+if hf_token:
+    os.environ["HF_TOKEN"] = hf_token
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = hf_token
 
 try:
     from backend.models import ForecastPoint
@@ -47,9 +65,15 @@ class TimesFMService:
             self._is_loading = True
             from timesfm import TimesFM3Forecaster
             print(f"[TimesFM 3.0] Loading TimesFM3Forecaster on device: {self._device}...")
+            
+            # Pass token if present
+            kwargs = {"device": self._device}
+            if hf_token:
+                kwargs["token"] = hf_token
+
             self._forecaster = TimesFM3Forecaster.from_pretrained(
                 "google/timesfm-3.0-pytorch",
-                device=self._device
+                **kwargs
             )
             print("[TimesFM 3.0] Foundation model initialized successfully!")
             return self._forecaster

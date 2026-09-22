@@ -1,8 +1,9 @@
-import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TradeApiService } from '../../services/trade-api.service';
 import { MultiAgentAnalysisResponse } from '../../models/trade.models';
+import { timeout, catchError, of } from 'rxjs';
 
 interface AgentStepMeta {
   step: number;
@@ -766,7 +767,10 @@ export class MultiAgentPanelComponent implements OnInit, OnChanges, OnDestroy {
     { step: 6, agent_name: 'Output Agent', role: 'SYNTHESIS PACKET', summary: 'Structuring final executive consensus recommendation and trace metadata...', status: 'PENDING' }
   ];
 
-  constructor(private api: TradeApiService) {}
+  constructor(
+    private api: TradeApiService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.executePipeline();
@@ -774,7 +778,9 @@ export class MultiAgentPanelComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['symbol'] && !changes['symbol'].firstChange) {
-      this.executePipeline();
+      if (changes['symbol'].currentValue !== changes['symbol'].previousValue) {
+        this.executePipeline();
+      }
     }
   }
 
@@ -792,21 +798,34 @@ export class MultiAgentPanelComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.symbol) return;
     this.isLoading = true;
     this.currentActiveStep = 1;
+    this.cdr.detectChanges();
     this.startStepSimulation();
 
-    this.api.getMultiAgentAnalysis(this.symbol, this.selectedHorizon, this.riskTolerance).subscribe({
-      next: (res) => {
-        this.result = res;
-        this.currentActiveStep = 6;
-        this.stopStepSimulation();
-        this.isLoading = false;
-      },
-      error: (err) => {
-        console.error('Multi-Agent pipeline error', err);
-        this.stopStepSimulation();
-        this.isLoading = false;
-      }
-    });
+    this.api.getMultiAgentAnalysis(this.symbol, this.selectedHorizon, this.riskTolerance)
+      .pipe(
+        timeout(15000),
+        catchError((err) => {
+          console.warn('Multi-agent timeout or error, falling back to local synthesis', err);
+          return of(this.api.getFallbackStockDetail(this.symbol) as any);
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          if (res && res.final_signal) {
+            this.result = res;
+          }
+          this.currentActiveStep = 6;
+          this.stopStepSimulation();
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Multi-Agent pipeline error', err);
+          this.stopStepSimulation();
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   private startStepSimulation(): void {
@@ -814,8 +833,9 @@ export class MultiAgentPanelComponent implements OnInit, OnChanges, OnDestroy {
     this.stepIntervalId = setInterval(() => {
       if (this.currentActiveStep < 5) {
         this.currentActiveStep++;
+        this.cdr.detectChanges();
       }
-    }, 750);
+    }, 650);
   }
 
   private stopStepSimulation(): void {

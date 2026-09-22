@@ -61,16 +61,27 @@ class MarketDataAgent(BaseAgent):
             month_pts = stock_detail.historical_data.get("1M", [])
             history_points = [p.close for p in month_pts] if month_pts else []
 
-        # 2. Fetch live data via yfinance if available
+        # 2. Fetch live data via yfinance with strict 3-second timeout
         yf_ticker = self._resolve_yfinance_ticker(symbol)
         yf_closes: List[float] = []
         yf_volumes: List[int] = []
         fundamentals: Dict[str, Any] = {}
 
+        def _fetch_yf():
+            try:
+                import yfinance as yf
+                ticker_obj = yf.Ticker(yf_ticker)
+                df = ticker_obj.history(period="3mo", interval="1d", timeout=3.0)
+                return ticker_obj, df
+            except Exception:
+                return None, None
+
         try:
-            import yfinance as yf
-            ticker_obj = yf.Ticker(yf_ticker)
-            df = ticker_obj.history(period="3mo", interval="1d")
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_fetch_yf)
+                ticker_obj, df = future.result(timeout=3.5)
+
             if df is not None and not df.empty and len(df) >= 10:
                 yf_closes = [round(float(c), 2) for c in df["Close"].dropna().tolist()]
                 yf_volumes = [int(v) for v in df["Volume"].dropna().tolist()]

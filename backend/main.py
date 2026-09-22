@@ -1,6 +1,16 @@
 import os
 import sys
+import warnings
+import logging
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
+
+warnings.filterwarnings("ignore", message=".*unauthenticated requests to the HF Hub.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub.*")
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:

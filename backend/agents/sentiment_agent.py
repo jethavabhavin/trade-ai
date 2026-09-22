@@ -24,27 +24,36 @@ class SentimentAgent(BaseAgent):
     def _call_gemini_api(self, prompt: str) -> Optional[str]:
         if not self.api_key:
             return None
-        try:
-            # Try google-genai SDK first
-            from google import genai
-            client = genai.Client(api_key=self.api_key)
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-            if response and response.text:
-                return response.text
-        except Exception as e:
+        
+        def _invoke():
             try:
-                # Try google.generativeai fallback
-                import google.generativeai as genai_legacy
-                genai_legacy.configure(api_key=self.api_key)
-                model = genai_legacy.GenerativeModel("gemini-1.5-flash")
-                res = model.generate_content(prompt)
-                return res.text
-            except Exception as e2:
-                print(f"[{self.name}] Gemini API call note: {e2}")
-        return None
+                from google import genai
+                client = genai.Client(api_key=self.api_key)
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt
+                )
+                if response and response.text:
+                    return response.text
+            except Exception:
+                try:
+                    import google.generativeai as genai_legacy
+                    genai_legacy.configure(api_key=self.api_key)
+                    model = genai_legacy.GenerativeModel("gemini-1.5-flash")
+                    res = model.generate_content(prompt)
+                    return res.text
+                except Exception as e2:
+                    print(f"[{self.name}] Gemini API call note: {e2}")
+            return None
+
+        try:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_invoke)
+                return future.result(timeout=4.0)
+        except Exception as e:
+            print(f"[{self.name}] Gemini call timeout or note: {e}")
+            return None
 
     def run(self, state: Dict[str, Any]) -> AgentResult:
         symbol = state.get("symbol", "TATASIL")
