@@ -1,6 +1,10 @@
 import os
 import json
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
 try:
     from backend.agents.base_agent import BaseAgent, AgentResult
 except ImportError:
