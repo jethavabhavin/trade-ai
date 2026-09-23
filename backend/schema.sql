@@ -108,3 +108,23 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO `audit_logs` (`user_id`, `username`, `action`, `details`, `ip_address`, `created_at`)
 VALUES 
 ('usr_admin_01', 'admin_super', 'SYSTEM_INIT', 'Database schema created and default Administrator account seeded', '127.0.0.1', CURRENT_TIMESTAMP);
+
+-- -----------------------------------------------------------------------------
+-- 5. Table structure for `market_symbols` (Dynamically Monitored Assets)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `market_symbols` (
+    `symbol` VARCHAR(32) NOT NULL,
+    `ticker` VARCHAR(64) NOT NULL,
+    `name` VARCHAR(128) NOT NULL,
+    `category` VARCHAR(32) NOT NULL DEFAULT 'EQUITY',
+    `exchange` VARCHAR(32) NOT NULL DEFAULT 'NSE',
+    `currency` VARCHAR(8) NOT NULL DEFAULT '₹',
+    `description` TEXT NULL,
+    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`symbol`),
+    INDEX `idx_market_symbols_active` (`is_active`),
+    INDEX `idx_market_symbols_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

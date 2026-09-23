@@ -26,6 +26,42 @@ def get_stocks(
         stocks = [s for s in stocks if s.category.upper() == category.upper()]
     return stocks
 
+@router.get("/symbols/list")
+def get_monitored_symbols_list(
+    current_user: UserDB = Depends(get_current_user)
+):
+    """
+    Returns list of all active market symbols registered and monitored in the database.
+    """
+    try:
+        from backend.database import SessionLocal
+        from backend.db_models import MarketSymbolDB
+    except ImportError:
+        from database import SessionLocal
+        from db_models import MarketSymbolDB
+    
+    db_session = SessionLocal()
+    try:
+        symbols = db_session.query(MarketSymbolDB).filter(MarketSymbolDB.is_active == True).all()
+        return [s.to_dict() for s in symbols]
+    finally:
+        db_session.close()
+
+@router.post("/symbols/sync")
+def sync_market_symbols_from_api(
+    current_user: UserDB = Depends(get_current_user)
+):
+    """
+    Triggers on-demand fetch and sync of official market asset metadata from API into database.
+    """
+    try:
+        from backend.live_market_service import LiveMarketService
+    except ImportError:
+        from live_market_service import LiveMarketService
+    
+    synced = LiveMarketService.sync_symbols_to_db()
+    return {"status": "success", "message": f"Successfully synced {len(synced)} symbols from API to database", "symbols": synced}
+
 @router.get("/search", response_model=List[StockSummary])
 def search_stocks(
     q: str = Query(..., min_length=1),

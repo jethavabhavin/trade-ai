@@ -17,7 +17,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from database import engine, db_dialect, SessionLocal
-from db_models import Base, UserDB, AuditLogDB
+from db_models import Base, UserDB, AuditLogDB, MarketSymbolDB
 from auth_utils import init_db_and_seed
 
 def main():
@@ -29,10 +29,18 @@ def main():
 
     try:
         init_db_and_seed()
-        print("\n[SUCCESS] Database tables verified & default users provisioned:")
+        db = SessionLocal()
+        sym_count = db.query(MarketSymbolDB).count()
+        db.close()
+
+        print("\n[SUCCESS] Database tables verified & schema updated successfully:")
+        print("  - [TABLE] users (Admin and Trader accounts seeded)")
+        print("  - [TABLE] audit_logs (System initialization logged)")
+        print(f"  - [TABLE] market_symbols ({sym_count} assets synced from live market API)")
+        print("\nDefault Credentials:")
         print("  - [ADMIN]  Email: admin@tradeai.app  | Password: AdminPassword@123  (Role: admin)")
         print("  - [TRADER] Email: trader@tradeai.app | Password: TraderPassword@123 (Role: user)")
-        print("\nSQL Schema file is available at: backend/schema.sql")
+        print("\nSQL Schema file available at: backend/schema.sql")
         print("=========================================================")
     except Exception as e:
         print(f"\n[ERROR] Database initialization failed: {e}")

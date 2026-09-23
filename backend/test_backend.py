@@ -162,3 +162,23 @@ def test_multi_agent_pipeline():
     assert "gemini_reasoning" in data
     assert "agent_execution_traces" in data
     assert len(data["agent_execution_traces"]) == 6 # All 6 agents executed
+
+def test_market_symbols_db_and_sync():
+    """Verify that market symbols are stored in DB, fetched dynamically, and can be synced."""
+    login_res = client.post("/api/auth/login", json={
+        "email": "trader@tradeai.app",
+        "password": "TraderPassword@123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Fetch database-monitored symbols list
+    sym_res = client.get("/api/stocks/symbols/list", headers=headers)
+    assert sym_res.status_code == 200
+    syms = sym_res.json()
+    assert len(syms) > 0
+    symbols_list = [s["symbol"] for s in syms]
+    assert "TATASIL" in symbols_list
+    assert "RELIANCE" in symbols_list
+

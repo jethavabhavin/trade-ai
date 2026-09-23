@@ -168,6 +168,19 @@ def init_db_and_seed():
             db.add(trader_user)
             print("[Database Seed] Created default Trader: trader@tradeai.app / TraderPassword@123")
 
+        # Check and seed/sync Market Symbols from API
+        try:
+            from backend.db_models import MarketSymbolDB
+            from backend.live_market_service import LiveMarketService
+        except ImportError:
+            from db_models import MarketSymbolDB
+            from live_market_service import LiveMarketService
+            
+        sym_count = db.query(MarketSymbolDB).count()
+        if sym_count == 0:
+            print("[Database Seed] Syncing market symbols from API into database...")
+            LiveMarketService.sync_symbols_to_db()
+
         db.commit()
     except Exception as e:
         db.rollback()

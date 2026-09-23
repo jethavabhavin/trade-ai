@@ -70,13 +70,12 @@ class ForecastEngine:
                 continue
             
             added_days += 1
-            # Projection calculation with wave dynamics & confidence expansion
-            step_volatility = volatility_factor * math.sqrt(added_days)
-            drift = bias * (1 + math.sin(added_days * 0.8) * 0.3)
+            step_volatility = volatility_factor * math.sqrt(added_days) * 0.65
+            drift = bias * (1 + math.sin(added_days * 0.8) * 0.25)
             projected = current_val * (1 + drift)
             
-            confidence = max(55.0, 96.0 - (added_days * 3.8))
-            spread = projected * step_volatility * (100.0 / confidence)
+            confidence = max(65.0, 96.0 - (added_days * 3.5))
+            spread = projected * step_volatility
             
             upper = projected + spread
             lower = projected - spread

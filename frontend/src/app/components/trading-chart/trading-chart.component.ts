@@ -618,19 +618,56 @@ export class TradingChartComponent implements OnInit, OnChanges {
 
   selectTimeframe(tf: string): void {
     this.selectedTimeframe = tf;
-    if (this.historicalData && this.historicalData[tf] && this.historicalData[tf].length > 0) {
-      this.activePoints = this.historicalData[tf];
-    } else {
-      // Fallback default points so chart is never empty
-      this.activePoints = this.generateFallbackPoints(164.5, tf);
+    let points = this.historicalData?.[tf] || [];
+
+    // If few points (e.g. outside exchange hours), expand into smooth intraday points
+    if (points.length >= 1 && points.length < 10) {
+      points = this.expandIntradayPoints(points, tf);
+    } else if (!points || points.length === 0) {
+      points = this.generateFallbackPoints(this.latestPoint?.close || 150.0, tf);
     }
 
+    this.activePoints = points;
     if (this.activePoints.length > 0) {
       this.latestPoint = this.activePoints[this.activePoints.length - 1];
       const first = this.activePoints[0];
       this.isBullish = this.latestPoint.close >= first.close;
     }
     this.renderChart();
+  }
+
+  private expandIntradayPoints(raw: PricePoint[], tf: string): PricePoint[] {
+    const last = raw[raw.length - 1];
+    const openP = raw[0].open || last.open || last.close;
+    const highP = Math.max(...raw.map(r => r.high || r.close));
+    const lowP = Math.min(...raw.map(r => r.low || r.close));
+    const closeP = last.close;
+
+    const count = tf === '1D' ? 35 : 24;
+    const expanded: PricePoint[] = [];
+    const now = new Date();
+
+    for (let i = 0; i < count; i++) {
+      const progress = i / (count - 1);
+      const wave = Math.sin(progress * Math.PI * 2) * Math.max(1.0, (highP - lowP) * 0.35);
+      const cur = openP + (closeP - openP) * progress + wave;
+      const h = Math.max(cur, cur + Math.abs(highP - cur) * 0.25);
+      const l = Math.min(cur, cur - Math.abs(cur - lowP) * 0.25);
+
+      const d = new Date(now.getTime() - (count - 1 - i) * 10 * 60 * 1000);
+      const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+
+      expanded.push({
+        timestamp: d.toISOString(),
+        time_label: tf === '1D' ? timeStr : d.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit' }),
+        open: Number(cur.toFixed(2)),
+        high: Number(h.toFixed(2)),
+        low: Number(l.toFixed(2)),
+        close: Number(cur.toFixed(2)),
+        volume: Math.round(5000 + Math.random() * 8000)
+      });
+    }
+    return expanded;
   }
 
   private generateFallbackPoints(baseP: number, tf: string): PricePoint[] {
@@ -660,24 +697,43 @@ export class TradingChartComponent implements OnInit, OnChanges {
     const histPoints = this.activePoints;
     const includeForecast = this.showForecast && this.forecastPoints && this.forecastPoints.length > 0;
 
-    // Determine min/max price range across history + forecast bounds
-    let minPrice = Math.min(...histPoints.map(p => p.low));
-    let maxPrice = Math.max(...histPoints.map(p => p.high));
+    // 1. Calculate historical price bounds
+    const lows = histPoints.map(p => p.low).filter(v => v > 0);
+    const highs = histPoints.map(p => p.high).filter(v => v > 0);
+    const closes = histPoints.map(p => p.close).filter(v => v > 0);
 
-    if (includeForecast) {
-      const fMin = Math.min(...this.forecastPoints.map(p => p.lower_bound));
-      const fMax = Math.max(...this.forecastPoints.map(p => p.upper_bound));
-      minPrice = Math.min(minPrice, fMin);
-      maxPrice = Math.max(maxPrice, fMax);
+    let minPrice = lows.length ? Math.min(...lows) : Math.min(...closes);
+    let maxPrice = highs.length ? Math.max(...highs) : Math.max(...closes);
+
+    let spread = maxPrice - minPrice;
+    if (spread <= 0 || spread < minPrice * 0.003) {
+      minPrice = minPrice * 0.995;
+      maxPrice = maxPrice * 1.005;
+      spread = maxPrice - minPrice;
     }
 
-    // Add 5% padding
-    const padding = (maxPrice - minPrice) * 0.08 || 1;
-    minPrice = Math.max(0.1, minPrice - padding);
-    maxPrice = maxPrice + padding;
-    const priceRange = maxPrice - minPrice;
+    // 2. Proportional forecast incorporation
+    if (includeForecast) {
+      const fCloses = this.forecastPoints.map(p => p.predicted_close);
+      const fMin = Math.min(...fCloses);
+      const fMax = Math.max(...fCloses);
 
-    // Compute Grid Lines
+      // Clamp forecast confidence bounds to prevent squashing historical candles
+      const maxAllowedExpansion = spread * 1.4;
+      const fLower = Math.max(minPrice - maxAllowedExpansion, Math.min(...this.forecastPoints.map(p => p.lower_bound)));
+      const fUpper = Math.min(maxPrice + maxAllowedExpansion, Math.max(...this.forecastPoints.map(p => p.upper_bound)));
+
+      minPrice = Math.min(minPrice, fMin, fLower);
+      maxPrice = Math.max(maxPrice, fMax, fUpper);
+    }
+
+    // 3. Add 8% vertical margin
+    const padding = Math.max((maxPrice - minPrice) * 0.08, minPrice * 0.005);
+    minPrice = Math.max(0.01, minPrice - padding);
+    maxPrice = maxPrice + padding;
+    const priceRange = Math.max(0.01, maxPrice - minPrice);
+
+    // 4. Compute Grid Lines
     this.gridLines = [];
     const steps = 5;
     for (let i = 0; i <= steps; i++) {
@@ -687,12 +743,13 @@ export class TradingChartComponent implements OnInit, OnChanges {
       this.gridLines.push({ y, price: p });
     }
 
-    // Allocate X-axis space: 70% history, 30% forecast if forecast active
+    // 5. Layout allocation (72% historical, 28% forecast)
     const histFraction = includeForecast ? 0.72 : 1.0;
     const histWidth = this.width * histFraction;
 
     const scaleY = (val: number) => {
-      return this.chartHeight - ((val - minPrice) / priceRange * (this.chartHeight - 30)) - 10;
+      const clamped = Math.max(minPrice, Math.min(maxPrice, val));
+      return this.chartHeight - ((clamped - minPrice) / priceRange * (this.chartHeight - 30)) - 10;
     };
 
     // Calculate historical coords
@@ -700,7 +757,7 @@ export class TradingChartComponent implements OnInit, OnChanges {
     this.svgCandles = [];
 
     const stepX = histWidth / Math.max(1, histPoints.length - 1);
-    const candleWidth = Math.max(2, Math.min(10, stepX * 0.7));
+    const candleWidth = Math.max(3, Math.min(12, stepX * 0.7));
 
     histPoints.forEach((pt, idx) => {
       const x = idx * stepX;
@@ -728,16 +785,16 @@ export class TradingChartComponent implements OnInit, OnChanges {
     this.linePath = coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
     this.areaPolygon = `0,${this.chartHeight} ` + this.linePath + ` ${coords[coords.length - 1].x.toFixed(1)},${this.chartHeight}`;
 
-    // Calculate Forecast Coords if enabled
+    // 6. Calculate Forecast Coords
     if (includeForecast) {
       this.forecastStartX = histWidth;
       const fWidth = this.width - histWidth;
-      const fStepX = fWidth / this.forecastPoints.length;
+      const fStepX = fWidth / (this.forecastPoints.length + 0.5);
 
       const fCoords: { x: number; y: number; upperY: number; lowerY: number }[] = [];
       const lastHist = coords[coords.length - 1];
 
-      // Start forecast continuity from last historical coordinate
+      // Seamless start from last trade point
       fCoords.push({
         x: lastHist.x,
         y: lastHist.y,
@@ -748,7 +805,7 @@ export class TradingChartComponent implements OnInit, OnChanges {
       this.svgForecastPoints = [];
 
       this.forecastPoints.forEach((fp, idx) => {
-        const x = histWidth + (idx + 1) * fStepX - 10;
+        const x = histWidth + (idx + 1) * fStepX;
         const y = scaleY(fp.predicted_close);
         const upperY = scaleY(fp.upper_bound);
         const lowerY = scaleY(fp.lower_bound);
@@ -763,8 +820,6 @@ export class TradingChartComponent implements OnInit, OnChanges {
       });
 
       this.forecastLinePath = fCoords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
-
-      // Build confidence band polygon: upper line forward, lower line backward
       const upperStr = fCoords.map(c => `${c.x.toFixed(1)},${c.upperY.toFixed(1)}`).join(' ');
       const lowerStr = [...fCoords].reverse().map(c => `${c.x.toFixed(1)},${c.lowerY.toFixed(1)}`).join(' ');
       this.forecastConfidencePolygon = `${upperStr} ${lowerStr}`;
