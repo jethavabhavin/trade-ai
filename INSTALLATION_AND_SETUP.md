@@ -1,26 +1,23 @@
 # TradeAI Installation & Setup Guide
 
-Welcome to the **TradeAI** setup guide. TradeAI is an autonomous, multi-agent AI stock trading & forecasting intelligence platform powered by **Google TimesFM 3.0** numeric foundation forecasting and **Google Gemini** qualitative reasoning.
+Welcome to the **TradeAI** setup guide. TradeAI is an enterprise autonomous multi-agent AI stock trading & forecasting intelligence platform powered by **Google TimesFM 3.0** numeric foundation forecasting and **Google Gemini** qualitative reasoning.
 
 ---
 
 ## 📋 Default Credentials
 
-During initial database creation (`schema.sql` or `init_db.py`), default accounts are automatically provisioned:
+During initial database initialization, default accounts are automatically provisioned:
 
 | Role | Username | Password | Email | Access Permissions |
 | :--- | :--- | :--- | :--- | :--- |
-| **Administrator** | `admin` | `admin123` | `admin@tradeai.io` | Full Admin Panel, User Management, Role Assignment, Status Toggling, Forecasts |
-| **Trader (Standard)** | `trader_pro` | `password123` | `trader@tradeai.io` | Multi-Agent Neural Forecasts, Interactive Graphs, 9:00 AM Daily Signals |
-
-> [!IMPORTANT]
-> All unauthenticated visitors are automatically routed to the full-screen Cyberpunk Login screen. To access forecasts, users must authenticate with one of the credentials above or register via the **Create Free Account** sign-up link.
+| **Administrator** | `admin` | `AdminPassword@123` *(or `admin123`)* | `admin@tradeai.app` | Full Admin Panel, User Management, Role Assignment, Status Toggling, Forecasts |
+| **Trader (User)** | `trader` | `TraderPassword@123` *(or `password123`)* | `trader@tradeai.app` | Multi-Agent Neural Forecasts, Interactive Graphs, Wishlist, Pine Script Studio |
 
 ---
 
 ## ⚙️ Configuration Reference (`.env`)
 
-Create a `.env` file in the `backend/` directory or at the project root using `backend/.env.example` as a template:
+Configure environment variables at the root or inside the `backend/` directory:
 
 | Environment Variable | Default Value | Description |
 | :--- | :--- | :--- |
@@ -29,19 +26,19 @@ Create a `.env` file in the `backend/` directory or at the project root using `b
 | `MYSQL_USER` | `root` (or `tradeai` in Docker) | MySQL database username |
 | `MYSQL_PASSWORD` | `""` (or `password123` in Docker) | MySQL database password |
 | `MYSQL_DATABASE` | `tradeai_db` | MySQL database name |
-| `DATABASE_URL` | *(Optional)* | Full connection URI (e.g. `mysql+pymysql://user:pass@host:3306/db`) |
-| `JWT_SECRET_KEY` | `tradeai_super_secret_jwt_key_timesfm_2026_secure` | Cryptographic secret for signing JWT tokens |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24 Hours) | JWT token session lifetime in minutes |
-| `GEMINI_API_KEY` | *(Optional)* | Google Gemini API key for live NLP sentiment & reasoning. Fallback heuristic engine activates if omitted. |
+| `DATABASE_URL` | *(Optional)* | Full connection URI (falls back to SQLite `backend/data/tradeai.db` if MySQL is unreachable) |
+| `JWT_SECRET_KEY` | `tradeai_super_secret_jwt_key_timesfm_2026_secure` | Secret key for cryptographic JWT signing |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24 Hours) | JWT token session validity in minutes |
+| `GEMINI_API_KEY` | *(Optional)* | Google Gemini API key for live NLP news sentiment & reasoning. Robust heuristic fallback activates if omitted. |
 
 ---
 
-## 🚀 Option 1: Docker Deployment (Recommended)
+## 🚀 Option 1: Docker Compose Deployment (Recommended)
 
-Deploy the entire full-stack application (MySQL 8.0, FastAPI Multi-Agent Backend, Angular 22 Frontend, and Nginx reverse proxy) in a single command.
+Deploy the full stack (MySQL 8.0, FastAPI Backend, Angular 22 Frontend, and Nginx reverse proxy) in a single command.
 
 ### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS / Linux)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
 ### Steps
 1. **Clone & Enter Workspace**:
@@ -49,18 +46,16 @@ Deploy the entire full-stack application (MySQL 8.0, FastAPI Multi-Agent Backend
    cd TradeAI
    ```
 
-2. **(Optional) Configure Gemini API Key**:
-   Set `GEMINI_API_KEY` in your environment or inside `docker-compose.yml`.
-
-3. **Launch Docker Stack**:
+2. **Launch Docker Stack**:
    ```bash
    docker-compose up --build
    ```
 
-4. **Access the Application**:
+3. **Access the Application**:
    - **Frontend UI**: [http://localhost:4200](http://localhost:4200)
-   - **Backend API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - **Backend Health Check**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
+   - **Swagger API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **ReDoc API Documentation**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+   - **Backend Root Status**: [http://localhost:8000/](http://localhost:8000/)
 
 ---
 
@@ -68,40 +63,34 @@ Deploy the entire full-stack application (MySQL 8.0, FastAPI Multi-Agent Backend
 
 ### Prerequisites
 - **Python**: 3.12+ (64-bit)
-- **Node.js**: 20.x or 22.x LTS (`npm` 9+)
-- **MySQL**: 8.0+ running on `localhost:3306`
+- **Node.js**: 20.x or 22.x LTS (`npm` 10+)
+- **MySQL** *(Optional)*: 8.0+ running on `localhost:3306` (SQLite fallback activates automatically if MySQL is not running)
 
 ---
 
-### Step 1: Database Initialization
-1. Start your local MySQL service (e.g., via MySQL Workbench, XAMPP, or command line).
-2. Execute `backend/schema.sql` against your MySQL instance:
-   ```bash
-   mysql -u root -p < backend/schema.sql
-   ```
-   *This creates `tradeai_db` database, `users` & `audit_logs` tables, and seeds the default `admin` and `trader_pro` accounts.*
+### Step 1: Backend Setup (FastAPI + TimesFM)
 
----
-
-### Step 2: Backend Setup (FastAPI + TimesFM)
 1. Navigate to the project root and create a Python virtual environment:
    ```bash
    python -m venv .venv
    ```
+
 2. Activate the virtual environment:
    - **Windows (PowerShell)**: `.venv\Scripts\Activate.ps1`
    - **Windows (CMD)**: `.venv\Scripts\activate.bat`
    - **Linux / macOS**: `source .venv/bin/activate`
-3. Install Python dependencies:
+
+3. Install backend dependencies:
    ```bash
    pip install -r backend/requirements.txt
    ```
-4. Copy the environment template:
+
+4. *(Optional)* Synchronize market asset metadata into the database:
    ```bash
-   cp backend/.env.example backend/.env
+   python backend/scripts/sync/sync_symbols.py
    ```
-   *(Update `MYSQL_PASSWORD` if your MySQL root account has a password)*
-5. Start the backend server:
+
+5. Start the FastAPI development server:
    ```bash
    python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
    ```
@@ -109,27 +98,31 @@ Deploy the entire full-stack application (MySQL 8.0, FastAPI Multi-Agent Backend
 
 ---
 
-### Step 3: Frontend Setup (Angular 22)
+### Step 2: Frontend Setup (Angular 22)
+
 1. Open a second terminal and navigate to the `frontend/` directory:
    ```bash
    cd frontend
    ```
-2. Install npm packages:
+
+2. Install npm dependencies:
    ```bash
    npm install
    ```
-3. Start the Angular development server:
+
+3. Start the Angular dev server:
    ```bash
    npm start
    ```
-   *(Or run `start_frontend.bat` on Windows)*
+   *(Or run `start_frontend.bat` from project root on Windows)*
+
 4. Open your browser at [http://localhost:4200](http://localhost:4200).
 
 ---
 
 ## 🧪 Running Automated Tests
 
-Run the full test suite (backend pytest test cases + frontend Angular production build verification):
+TradeAI includes a complete 12-suite integration test runner covering auth, RBAC, live market data, multi-agent forecasts, database wishlist CRUD, and TradingView Pine Script generation:
 
 - **Windows**:
   ```bat
@@ -142,5 +135,17 @@ Run the full test suite (backend pytest test cases + frontend Angular production
   ```
 - **Direct Pytest**:
   ```bash
-  .venv/bin/pytest backend/test_backend.py -v
+  pytest backend/tests/test_backend.py -v
   ```
+
+---
+
+## 📁 Key Architectural Directories
+
+- `backend/agents/`: Multi-agent pipeline (MarketData, Sentiment, QuantForecaster, Reasoning, FusionRisk, Output, Orchestrator, TimesFMService).
+- `backend/models/`: SQLAlchemy ORM database models (`UserDB`, `MarketSymbolDB`, `TradeDataDB`, `PredictionDB`, `WishlistDB`, `PineScriptDB`).
+- `backend/schemas/`: Pydantic schemas for request validation and response typing.
+- `backend/routers/`: Modular route endpoints (`auth`, `stocks`, `forecast`, `portfolio`, `wishlist`, `pine_script`, `admin`).
+- `backend/scripts/sync/`: Market data synchronization and symbol seed utilities.
+- `backend/tests/`: Pytest automated test suites.
+- `plan/`: Architectural planning and refactoring specifications.
