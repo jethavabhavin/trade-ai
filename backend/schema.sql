@@ -128,3 +128,71 @@ CREATE TABLE IF NOT EXISTS `market_symbols` (
     INDEX `idx_market_symbols_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- 6. Table structure for `predictions` (AI Forecasts & Stock Predictions)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `predictions` (
+    `id` VARCHAR(64) NOT NULL,
+    `symbol` VARCHAR(32) NOT NULL,
+    `name` VARCHAR(128) NOT NULL,
+    `current_price` DOUBLE NOT NULL,
+    `target_price` DOUBLE NOT NULL,
+    `stop_loss` DOUBLE NOT NULL,
+    `expected_roi_pct` DOUBLE NOT NULL,
+    `action` VARCHAR(32) NOT NULL,
+    `confidence_score` DOUBLE NOT NULL,
+    `risk_level` VARCHAR(32) NOT NULL DEFAULT 'MEDIUM',
+    `model_name` VARCHAR(128) NOT NULL DEFAULT 'TradeAI Multi-Horizon Neural Engine',
+    `horizon` VARCHAR(16) NOT NULL DEFAULT '7D',
+    `forecast_1d_json` LONGTEXT NULL,
+    `forecast_7d_json` LONGTEXT NULL,
+    `technical_catalysts_json` LONGTEXT NULL,
+    `sentiment_score` DOUBLE NOT NULL DEFAULT 0.0,
+    `rsi` DOUBLE NOT NULL DEFAULT 50.0,
+    `macd_signal` VARCHAR(64) NOT NULL DEFAULT 'Neutral',
+    `rationale` TEXT NULL,
+    `predicted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_predictions_symbol` (`symbol`),
+    INDEX `idx_predictions_action` (`action`),
+    INDEX `idx_predictions_predicted_at` (`predicted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 7. Table structure for `trade_data` (Stored NSE/Exchange Quotes & Candles)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `trade_data` (
+    `symbol` VARCHAR(32) NOT NULL,
+    `ticker` VARCHAR(64) NOT NULL,
+    `name` VARCHAR(128) NOT NULL,
+    `category` VARCHAR(32) NOT NULL DEFAULT 'EQUITY',
+    `exchange` VARCHAR(32) NOT NULL DEFAULT 'NSE',
+    `currency` VARCHAR(8) NOT NULL DEFAULT '₹',
+    `current_price` DOUBLE NOT NULL,
+    `change_amount` DOUBLE NOT NULL DEFAULT 0.0,
+    `change_pct` DOUBLE NOT NULL DEFAULT 0.0,
+    `previous_close` DOUBLE NOT NULL DEFAULT 0.0,
+    `today_open` DOUBLE NOT NULL DEFAULT 0.0,
+    `day_high` DOUBLE NOT NULL DEFAULT 0.0,
+    `day_low` DOUBLE NOT NULL DEFAULT 0.0,
+    `week_high_52` DOUBLE NOT NULL DEFAULT 0.0,
+    `week_low_52` DOUBLE NOT NULL DEFAULT 0.0,
+    `volume_24h` VARCHAR(32) NOT NULL DEFAULT '100K',
+    `market_cap` VARCHAR(32) NOT NULL DEFAULT '₹100B',
+    `pe_ratio` DOUBLE NOT NULL DEFAULT 24.5,
+    `description` TEXT NULL,
+    `historical_data_json` LONGTEXT NULL,
+    `sparkline_json` LONGTEXT NULL,
+    `source` VARCHAR(32) NOT NULL DEFAULT 'NSE',
+    `fetched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`symbol`),
+    INDEX `idx_trade_data_fetched_at` (`fetched_at`),
+    INDEX `idx_trade_data_exchange` (`exchange`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+

@@ -182,3 +182,70 @@ def test_market_symbols_db_and_sync():
     assert "TATASIL" in symbols_list
     assert "RELIANCE" in symbols_list
 
+def test_predictions_db_storage_and_query():
+    """Verify that predictions are stored in DB upon calculation and can be queried via API."""
+    login_res = client.post("/api/auth/login", json={
+        "email": "trader@tradeai.app",
+        "password": "TraderPassword@123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Trigger live stock detail calculation which triggers prediction & DB persistence
+    detail_res = client.get("/api/stocks/TATASIL", headers=headers)
+    assert detail_res.status_code == 200
+    detail_data = detail_res.json()
+    assert detail_data["symbol"] == "TATASIL"
+    assert "forecast_1d" in detail_data
+    assert "forecast_next_week" in detail_data
+
+    # 2. Query latest prediction from DB
+    latest_res = client.get("/api/forecast/predictions/latest/TATASIL", headers=headers)
+    assert latest_res.status_code == 200
+    latest_pred = latest_res.json()
+    assert latest_pred["symbol"] == "TATASIL"
+    assert "target_price" in latest_pred
+    assert "forecast_1d" in latest_pred
+    assert "forecast_7d" in latest_pred
+    assert latest_pred["current_price"] > 0
+
+    # 3. Query prediction history
+    history_res = client.get("/api/forecast/predictions/history?limit=10", headers=headers)
+    assert history_res.status_code == 200
+    history = history_res.json()
+    assert len(history) > 0
+    assert any(h["symbol"] == "TATASIL" for h in history)
+
+def test_trade_data_db_caching_and_persistence():
+    """Verify that trade data is persisted to DB upon fetch and reused directly from system."""
+    from live_market_service import LiveMarketService
+    from database import SessionLocal
+    from db_models import TradeDataDB
+
+    # 1. Fetch stock detail (fetches and writes to DB)
+    detail = LiveMarketService.fetch_live_stock_detail("RELIANCE")
+    assert detail is not None
+    assert detail.symbol == "RELIANCE"
+    assert detail.current_price > 0
+
+    # 2. Check that it is stored in database
+    db_session = SessionLocal()
+    trade_row = db_session.query(TradeDataDB).filter(TradeDataDB.symbol == "RELIANCE").first()
+    db_session.close()
+    assert trade_row is not None
+    assert trade_row.symbol == "RELIANCE"
+    assert trade_row.current_price > 0
+    assert "1M" in trade_row.historical_data
+
+    # 3. Test get_trade_data_from_db directly retrieves and constructs StockDetail from DB
+    loaded = LiveMarketService.get_trade_data_from_db("RELIANCE", max_age_seconds=3600)
+    assert loaded is not None
+    assert loaded.symbol == "RELIANCE"
+    assert loaded.current_price == trade_row.current_price
+    assert len(loaded.forecast_next_week) == 7
+    assert len(loaded.forecast_1d) > 0
+    assert loaded.morning_signal is not None
+
+
+

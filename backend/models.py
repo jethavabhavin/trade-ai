@@ -65,6 +65,7 @@ class StockDetail(StockSummary):
     pe_ratio: Optional[float] = None
     historical_data: Dict[str, List[PricePoint]] = Field(default_factory=dict) # keys: "1D", "1W", "1M", "1Y", "5Y"
     forecast_next_week: List[ForecastPoint] = Field(default_factory=list)
+    forecast_1d: List[ForecastPoint] = Field(default_factory=list)
 
 class UserProfile(BaseModel):
     id: str

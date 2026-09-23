@@ -1,7 +1,7 @@
 import math
 import random
 from datetime import datetime, timedelta
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 try:
     from backend.models import PricePoint, ForecastPoint, MorningSignal
 except ImportError:
@@ -101,6 +101,70 @@ class ForecastEngine:
         return forecasts
 
     @classmethod
+    def generate_one_day_forecast(
+        cls,
+        base_price: float,
+        historical_close_prices: List[float],
+        volatility_factor: float = 0.007,
+        bias: float = 0.003
+    ) -> List[ForecastPoint]:
+        """
+        Generates 1-Day future intraday hourly prediction curve (09:30 to 15:30)
+        with upper/lower confidence envelopes and intraday wave dynamics.
+        """
+        forecasts: List[ForecastPoint] = []
+        current_val = base_price
+        
+        # Calculate recent short-term momentum
+        momentum = 0.0
+        if len(historical_close_prices) >= 3:
+            recent = historical_close_prices[-3:]
+            momentum = (recent[-1] - recent[0]) / recent[0]
+            bias = bias + (momentum * 0.15)
+
+        time_slots = ["09:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30"]
+        tomorrow = datetime.now() + timedelta(days=1)
+        if tomorrow.weekday() == 5: # Saturday -> Monday
+            tomorrow += timedelta(days=2)
+        elif tomorrow.weekday() == 6: # Sunday -> Monday
+            tomorrow += timedelta(days=1)
+        
+        tomorrow_str = tomorrow.strftime("%Y-%m-%d")
+        day_name = tomorrow.strftime("%a")
+
+        for idx, t_slot in enumerate(time_slots):
+            step = idx + 1
+            step_vol = volatility_factor * math.sqrt(step) * 0.5
+            intraday_wave = math.sin(step * 0.9) * 0.0025
+            drift = (bias * (step / len(time_slots))) + intraday_wave
+            projected = current_val * (1 + drift)
+            
+            confidence = max(75.0, 97.0 - (step * 2.2))
+            spread = projected * step_vol
+            upper = projected + spread
+            lower = projected - spread
+            
+            trend = "UP" if projected >= current_val else "DOWN"
+            if abs(projected - current_val) / current_val < 0.001:
+                trend = "FLAT"
+
+            forecasts.append(
+                ForecastPoint(
+                    day=step,
+                    date=f"{tomorrow_str} {t_slot}",
+                    day_name=f"{t_slot}",
+                    predicted_close=round(projected, 2),
+                    upper_bound=round(upper, 2),
+                    lower_bound=round(lower, 2),
+                    confidence_pct=round(confidence, 1),
+                    trend=trend
+                )
+            )
+            current_val = projected
+
+        return forecasts
+
+    @classmethod
     def generate_morning_signal(
         cls,
         symbol: str,
@@ -178,7 +242,7 @@ class ForecastEngine:
 
         today_str = datetime.now().strftime("%Y-%m-%d")
         
-        return MorningSignal(
+        signal = MorningSignal(
             id=f"sig-{symbol.lower()}-{today_str}",
             symbol=symbol,
             name=name,
@@ -198,6 +262,135 @@ class ForecastEngine:
             macd_signal=macd_signal
         )
 
+        # Automatically store current prediction to database
+        cls.save_prediction_to_db(
+            symbol=symbol,
+            name=name,
+            current_price=current_price,
+            target_price=target_price,
+            stop_loss=stop_loss,
+            expected_roi_pct=roi_pct,
+            action=action,
+            confidence_score=float(confidence),
+            risk_level=risk,
+            model_name="TradeAI Pre-Market Engine",
+            technical_catalysts=catalysts,
+            sentiment_score=sentiment,
+            rsi=rsi,
+            macd_signal=macd_signal,
+            rationale=signal.rationale
+        )
+
+        return signal
+
+    @classmethod
+    def save_prediction_to_db(
+        cls,
+        symbol: str,
+        name: str,
+        current_price: float,
+        target_price: float,
+        stop_loss: float,
+        expected_roi_pct: float,
+        action: str,
+        confidence_score: float,
+        risk_level: str = "MEDIUM",
+        model_name: str = "TradeAI Multi-Horizon Neural Engine",
+        horizon: str = "7D",
+        forecast_1d: Optional[List[Any]] = None,
+        forecast_7d: Optional[List[Any]] = None,
+        technical_catalysts: Optional[List[str]] = None,
+        sentiment_score: float = 0.0,
+        rsi: float = 50.0,
+        macd_signal: str = "Neutral",
+        rationale: Optional[str] = None
+    ) -> bool:
+        """
+        Persists generated AI stock prediction and multi-horizon forecasts into the database.
+        """
+        try:
+            import json
+            from backend.database import SessionLocal
+            from backend.db_models import PredictionDB
+        except ImportError:
+            import json
+            from database import SessionLocal
+            from db_models import PredictionDB
+
+        try:
+            db_session = SessionLocal()
+            sym_upper = symbol.upper().strip()
+            pred_id = f"pred_{sym_upper.lower()}_{datetime.utcnow().strftime('%Y%m%d')}"
+
+            # Format forecast points to dicts if they are Pydantic objects
+            f_1d_dicts = [p.dict() if hasattr(p, 'dict') else p for p in (forecast_1d or [])]
+            f_7d_dicts = [p.dict() if hasattr(p, 'dict') else p for p in (forecast_7d or [])]
+
+            existing = db_session.query(PredictionDB).filter(PredictionDB.id == pred_id).first()
+            if not existing:
+                existing = db_session.query(PredictionDB).filter(PredictionDB.symbol == sym_upper).order_by(PredictionDB.predicted_at.desc()).first()
+
+            if existing:
+                existing.name = name
+                existing.current_price = current_price
+                existing.target_price = target_price
+                existing.stop_loss = stop_loss
+                existing.expected_roi_pct = expected_roi_pct
+                existing.action = action
+                existing.confidence_score = confidence_score
+                existing.risk_level = risk_level
+                existing.model_name = model_name
+                existing.horizon = horizon
+                if forecast_1d is not None and len(f_1d_dicts) > 0:
+                    existing.forecast_1d_json = json.dumps(f_1d_dicts)
+                if forecast_7d is not None and len(f_7d_dicts) > 0:
+                    existing.forecast_7d_json = json.dumps(f_7d_dicts)
+                if technical_catalysts is not None:
+                    existing.technical_catalysts_json = json.dumps(technical_catalysts)
+                existing.sentiment_score = sentiment_score
+                existing.rsi = rsi
+                existing.macd_signal = macd_signal
+                existing.rationale = rationale
+                existing.predicted_at = datetime.utcnow()
+                existing.updated_at = datetime.utcnow()
+            else:
+                new_pred = PredictionDB(
+                    id=pred_id,
+                    symbol=sym_upper,
+                    name=name,
+                    current_price=current_price,
+                    target_price=target_price,
+                    stop_loss=stop_loss,
+                    expected_roi_pct=expected_roi_pct,
+                    action=action,
+                    confidence_score=confidence_score,
+                    risk_level=risk_level,
+                    model_name=model_name,
+                    horizon=horizon,
+                    forecast_1d_json=json.dumps(f_1d_dicts),
+                    forecast_7d_json=json.dumps(f_7d_dicts),
+                    technical_catalysts_json=json.dumps(technical_catalysts or []),
+                    sentiment_score=sentiment_score,
+                    rsi=rsi,
+                    macd_signal=macd_signal,
+                    rationale=rationale,
+                    predicted_at=datetime.utcnow(),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                db_session.add(new_pred)
+
+            db_session.commit()
+            return True
+        except Exception as e:
+            if 'db_session' in locals():
+                db_session.rollback()
+            print(f"[Prediction DB Save Error]: {e}")
+            return False
+        finally:
+            if 'db_session' in locals():
+                db_session.close()
+
     @classmethod
     def run_timesfm_prediction(
         cls,
@@ -215,12 +408,38 @@ class ForecastEngine:
         except ImportError:
             from timesfm_service import timesfm_service
         
-        return timesfm_service.predict_future_horizon(
+        result = timesfm_service.predict_future_horizon(
             symbol=symbol,
             name=name,
             current_price=current_price,
             historical_prices=historical_closes,
             horizon=7
         )
+
+        # Store TimesFM prediction to DB
+        f_points = result.get("forecast_points", [])
+        end_p = result.get("predicted_end_price", current_price)
+        roi = result.get("predicted_roi_pct", 0.0)
+        action = "STRONG BUY" if roi > 5.0 else ("BUY" if roi > 2.0 else ("SELL" if roi < -2.0 else "HOLD"))
+
+        cls.save_prediction_to_db(
+            symbol=symbol,
+            name=name,
+            current_price=current_price,
+            target_price=end_p,
+            stop_loss=round(current_price * 0.96, 2),
+            expected_roi_pct=roi,
+            action=action,
+            confidence_score=float(result.get("confidence_score", 90.0)),
+            risk_level="MEDIUM",
+            model_name="Google TimesFM 3.0 PyTorch",
+            horizon="7D",
+            forecast_7d=f_points,
+            sentiment_score=float(result.get("sentiment_index", 0.8)),
+            rationale=result.get("neural_reasoning", "")
+        )
+
+        return result
+
 
 

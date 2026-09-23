@@ -119,6 +119,7 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
         <app-trading-chart
           [historicalData]="featuredStock.historical_data"
           [forecastPoints]="featuredStock.forecast_next_week"
+          [forecast1DPoints]="featuredStock.forecast_1d || []"
           [currency]="featuredStock.currency"
           [currentRsi]="featuredStock.morning_signal?.rsi || 44.5"
         ></app-trading-chart>

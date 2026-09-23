@@ -495,19 +495,257 @@ class LiveMarketService:
             db.close()
 
     @classmethod
-    def fetch_live_stock_detail(cls, symbol: str, fallback_detail: Optional[StockDetail] = None) -> StockDetail:
+    def save_trade_data_to_db(cls, detail: StockDetail, source: str = "NSE") -> bool:
         """
-        Fetches live real-time price, fundamentals, multi-timeframe candles,
-        and recalculates AI Forecasts & 9 AM Morning Signals from actual market data.
+        Persists live trade quotes, OHLCV candle datasets, and fundamentals to the database.
+        Stores trade data once fetched from NSE site / market feed.
+        """
+        try:
+            from backend.database import SessionLocal
+            from backend.db_models import TradeDataDB
+        except ImportError:
+            from database import SessionLocal
+            from db_models import TradeDataDB
+
+        try:
+            import json
+            db_session = SessionLocal()
+            sym = detail.symbol.upper().strip()
+            
+            # Serialize multi-timeframe historical candles to plain JSON dicts
+            serialized_hist = {}
+            for tf, pts in (detail.historical_data or {}).items():
+                serialized_hist[tf] = [
+                    p.dict() if hasattr(p, 'dict') else (p.model_dump() if hasattr(p, 'model_dump') else p) 
+                    for p in pts
+                ]
+
+            existing = db_session.query(TradeDataDB).filter(TradeDataDB.symbol == sym).first()
+            if existing:
+                existing.ticker = cls.resolve_ticker(sym)
+                existing.name = detail.name
+                existing.category = detail.category
+                existing.exchange = detail.exchange
+                existing.currency = detail.currency
+                existing.current_price = detail.current_price
+                existing.change_amount = detail.change_amount
+                existing.change_pct = detail.change_pct
+                existing.previous_close = detail.previous_close
+                existing.today_open = detail.today_open
+                existing.day_high = detail.day_high
+                existing.day_low = detail.day_low
+                existing.week_high_52 = detail.week_high_52
+                existing.week_low_52 = detail.week_low_52
+                existing.volume_24h = detail.volume_24h
+                existing.market_cap = detail.market_cap
+                existing.pe_ratio = detail.pe_ratio
+                existing.description = detail.description
+                existing.historical_data_json = json.dumps(serialized_hist)
+                existing.sparkline_json = json.dumps(detail.sparkline or [])
+                existing.source = source
+                existing.fetched_at = datetime.utcnow()
+                existing.updated_at = datetime.utcnow()
+            else:
+                new_trade = TradeDataDB(
+                    symbol=sym,
+                    ticker=cls.resolve_ticker(sym),
+                    name=detail.name,
+                    category=detail.category,
+                    exchange=detail.exchange,
+                    currency=detail.currency,
+                    current_price=detail.current_price,
+                    change_amount=detail.change_amount,
+                    change_pct=detail.change_pct,
+                    previous_close=detail.previous_close,
+                    today_open=detail.today_open,
+                    day_high=detail.day_high,
+                    day_low=detail.day_low,
+                    week_high_52=detail.week_high_52,
+                    week_low_52=detail.week_low_52,
+                    volume_24h=detail.volume_24h,
+                    market_cap=detail.market_cap,
+                    pe_ratio=detail.pe_ratio,
+                    description=detail.description,
+                    historical_data_json=json.dumps(serialized_hist),
+                    sparkline_json=json.dumps(detail.sparkline or []),
+                    source=source,
+                    fetched_at=datetime.utcnow(),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                db_session.add(new_trade)
+
+            db_session.commit()
+            return True
+        except Exception as e:
+            if 'db_session' in locals():
+                db_session.rollback()
+            logger.error(f"Error saving trade data to DB for {detail.symbol}: {e}")
+            return False
+        finally:
+            if 'db_session' in locals():
+                db_session.close()
+
+    @classmethod
+    def get_trade_data_from_db(cls, symbol: str, max_age_seconds: Optional[float] = None) -> Optional[StockDetail]:
+        """
+        Checks if trade data exists in system database.
+        If present and fresh (within max_age_seconds), rebuilds StockDetail without calling external API.
+        """
+        try:
+            from backend.database import SessionLocal
+            from backend.db_models import TradeDataDB
+        except ImportError:
+            from database import SessionLocal
+            from db_models import TradeDataDB
+
+        sym_upper = symbol.upper().strip()
+        try:
+            db_session = SessionLocal()
+            row = db_session.query(TradeDataDB).filter(TradeDataDB.symbol == sym_upper).first()
+            if not row:
+                return None
+
+            if max_age_seconds is not None and row.fetched_at:
+                age = (datetime.utcnow() - row.fetched_at).total_seconds()
+                if age > max_age_seconds:
+                    return None
+
+            # Parse historical candle arrays
+            raw_hist = row.historical_data or {}
+            parsed_hist: Dict[str, List[PricePoint]] = {}
+            for tf, pts in raw_hist.items():
+                parsed_pts = []
+                for p in pts:
+                    if isinstance(p, dict):
+                        parsed_pts.append(PricePoint(**p))
+                    elif hasattr(p, 'close'):
+                        parsed_pts.append(p)
+                parsed_hist[tf] = parsed_pts
+
+            # Generate forecasts and morning signals from stored series
+            history_1m = parsed_hist.get("1M", [])
+            closes = [p.close for p in history_1m] if history_1m else [row.current_price]
+
+            f_points = ForecastEngine.generate_next_week_forecast(
+                base_price=row.current_price,
+                historical_close_prices=closes
+            )
+            f_1d = ForecastEngine.generate_one_day_forecast(
+                base_price=row.current_price,
+                historical_close_prices=closes
+            )
+            m_signal = ForecastEngine.generate_morning_signal(
+                symbol=row.symbol,
+                name=row.name,
+                current_price=row.current_price,
+                history=history_1m,
+                custom_rationale=f"Reconstructed from persistent trade store ({len(closes)} daily bars)."
+            )
+
+            detail = StockDetail(
+                symbol=row.symbol,
+                name=row.name,
+                category=row.category,
+                exchange=row.exchange,
+                current_price=row.current_price,
+                change_amount=row.change_amount,
+                change_pct=row.change_pct,
+                currency=row.currency,
+                volume_24h=row.volume_24h,
+                market_cap=row.market_cap,
+                description=row.description or f"Stored market trade asset {row.symbol}.",
+                week_high_52=row.week_high_52,
+                week_low_52=row.week_low_52,
+                day_high=row.day_high,
+                day_low=row.day_low,
+                pe_ratio=row.pe_ratio,
+                historical_data=parsed_hist,
+                forecast_next_week=f_points,
+                forecast_1d=f_1d,
+                morning_signal=m_signal,
+                sparkline=row.sparkline or closes[-15:],
+                previous_close=row.previous_close,
+                today_open=row.today_open
+            )
+            return detail
+        except Exception as e:
+            logger.error(f"Error reading trade data from DB for {sym_upper}: {e}")
+            return None
+        finally:
+            if 'db_session' in locals():
+                db_session.close()
+
+    @classmethod
+    def fetch_nse_quote_live(cls, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches live quote directly from official NSE India API (https://www.nseindia.com/api/quote-equity?symbol=...).
+        """
+        sym_clean = symbol.upper().replace(".NS", "").replace("^", "").strip()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": f"https://www.nseindia.com/get-quotes/equity?symbol={sym_clean}",
+            "Connection": "keep-alive"
+        }
+        try:
+            import requests
+            session = requests.Session()
+            session.headers.update(headers)
+            try:
+                session.get("https://www.nseindia.com", timeout=3)
+            except Exception:
+                pass
+
+            res = session.get(f"https://www.nseindia.com/api/quote-equity?symbol={sym_clean}", timeout=4)
+            if res.status_code == 200:
+                data = res.json()
+                price_info = data.get("priceInfo", {})
+                info = data.get("info", {})
+                if price_info.get("lastPrice"):
+                    return {
+                        "symbol": sym_clean,
+                        "name": info.get("companyName", sym_clean),
+                        "current_price": float(price_info.get("lastPrice")),
+                        "change": float(price_info.get("change", 0.0)),
+                        "pChange": float(price_info.get("pChange", 0.0)),
+                        "previousClose": float(price_info.get("previousClose", price_info.get("lastPrice"))),
+                        "open": float(price_info.get("open", price_info.get("lastPrice"))),
+                        "dayHigh": float(price_info.get("intraDayHighLow", {}).get("max", price_info.get("lastPrice"))),
+                        "dayLow": float(price_info.get("intraDayHighLow", {}).get("min", price_info.get("lastPrice"))),
+                        "weekHigh52": float(price_info.get("weekHighLow", {}).get("max", price_info.get("lastPrice"))),
+                        "weekLow52": float(price_info.get("weekHighLow", {}).get("min", price_info.get("lastPrice"))),
+                        "totalTradedVolume": data.get("preOpenMarket", {}).get("totalTradedVolume", 100000)
+                    }
+        except Exception as ex:
+            logger.debug(f"Direct NSE quote fetch notice for {sym_clean}: {ex}")
+        return None
+
+    @classmethod
+    def fetch_live_stock_detail(cls, symbol: str, fallback_detail: Optional[StockDetail] = None, force_refresh: bool = False) -> StockDetail:
+        """
+        Fetches stock trade data, multi-timeframe candles, and AI forecasts.
+        Checks system database first; if exists and fresh, uses it immediately; else queries live NSE API,
+        and saves trade data to DB once fetched.
         """
         symbol_upper = symbol.upper().strip()
         now_ts = time.time()
 
-        # Check Cache
-        if symbol_upper in cls._cache_details:
-            cached_data, cache_time = cls._cache_details[symbol_upper]["data"], cls._cache_details[symbol_upper]["time"]
-            if (now_ts - cache_time) < cls.CACHE_TTL_SECONDS:
-                return cached_data
+        # 1. Use system / DB data first if exists and fresh
+        if not force_refresh:
+            if symbol_upper in cls._cache_details:
+                cached_data, cache_time = cls._cache_details[symbol_upper]["data"], cls._cache_details[symbol_upper]["time"]
+                if (now_ts - cache_time) < cls.CACHE_TTL_SECONDS:
+                    return cached_data
+
+            db_trade = cls.get_trade_data_from_db(symbol_upper, max_age_seconds=cls.CACHE_TTL_SECONDS)
+            if db_trade is not None:
+                cls._cache_details[symbol_upper] = {
+                    "data": db_trade,
+                    "time": now_ts
+                }
+                return db_trade
 
         yf_ticker = cls.resolve_ticker(symbol_upper)
         
@@ -716,9 +954,13 @@ class LiveMarketService:
                 w52_low = round(min(lows), 2)
                 mcap_str = f"{meta['currency']}100B"
 
-            # 4. Fast Dynamic 7-Day Forecast from Live Series
+            # 4. Fast Dynamic 7-Day and 1-Day Forecasts from Live Series
             clean_closes = [round(float(c), 2) for c in closes]
             forecast_points = ForecastEngine.generate_next_week_forecast(
+                base_price=current_p,
+                historical_close_prices=clean_closes
+            )
+            forecast_1d = ForecastEngine.generate_one_day_forecast(
                 base_price=current_p,
                 historical_close_prices=clean_closes
             )
@@ -731,6 +973,31 @@ class LiveMarketService:
                 history=historical_data.get("1M", []),
                 custom_rationale=f"Live market quote updated. Real-time momentum calculated from {len(clean_closes)} live exchange bars."
             )
+
+            # Persist prediction with both 1D and 7D forecasts to DB
+            try:
+                ForecastEngine.save_prediction_to_db(
+                    symbol=symbol_upper,
+                    name=meta["name"],
+                    current_price=current_p,
+                    target_price=morning_signal.target_price,
+                    stop_loss=morning_signal.stop_loss,
+                    expected_roi_pct=morning_signal.expected_roi_pct,
+                    action=morning_signal.action,
+                    confidence_score=float(morning_signal.confidence),
+                    risk_level=morning_signal.risk_level,
+                    model_name="TradeAI Multi-Horizon Neural Engine",
+                    horizon="7D",
+                    forecast_1d=forecast_1d,
+                    forecast_7d=forecast_points,
+                    technical_catalysts=morning_signal.technical_catalysts,
+                    sentiment_score=morning_signal.sentiment_score,
+                    rsi=morning_signal.rsi,
+                    macd_signal=morning_signal.macd_signal,
+                    rationale=morning_signal.rationale
+                )
+            except Exception as pe:
+                logger.debug(f"Async DB prediction persist note: {pe}")
 
             sparkline = clean_closes[-15:] if len(clean_closes) >= 15 else [current_p] * 15
 
@@ -753,13 +1020,20 @@ class LiveMarketService:
                 pe_ratio=24.5,
                 historical_data=historical_data,
                 forecast_next_week=forecast_points,
+                forecast_1d=forecast_1d,
                 morning_signal=morning_signal,
                 sparkline=sparkline,
                 previous_close=prev_p,
                 today_open=today_open
             )
 
-            # Store in Cache
+            # Store in DB Trade Data Repository
+            try:
+                cls.save_trade_data_to_db(live_detail, source="NSE")
+            except Exception as se:
+                logger.debug(f"Async DB trade data persist note: {se}")
+
+            # Store in Memory Cache
             cls._cache_details[symbol_upper] = {
                 "data": live_detail,
                 "time": now_ts
@@ -767,7 +1041,14 @@ class LiveMarketService:
             return live_detail
 
         except Exception as e:
-            logger.warning(f"Could not fetch live data for {symbol_upper} ({e}). Returning fallback snapshot.")
+            logger.warning(f"Live market fetch notice for {symbol_upper} ({e}). Checking persistent trade data in DB...")
+            # Fallback 1: Check if any previous trade data exists in the database
+            db_trade = cls.get_trade_data_from_db(symbol_upper, max_age_seconds=None)
+            if db_trade:
+                logger.info(f"Loaded stored trade data for {symbol_upper} from DB repository.")
+                return db_trade
+
+            # Fallback 2: StockDetail fallback
             if fallback_detail:
                 return fallback_detail
             raise e

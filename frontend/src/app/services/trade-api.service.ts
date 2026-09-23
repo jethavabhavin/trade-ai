@@ -581,6 +581,23 @@ export class TradeApiService {
       };
     });
 
+    const slots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30'];
+    const forecast1D: ForecastPoint[] = slots.map((s, idx) => {
+      const step = idx + 1;
+      const proj = baseP * (1 + 0.003 * (step / slots.length) + Math.sin(step * 0.9) * 0.002);
+      const spread = proj * 0.006 * Math.sqrt(step);
+      return {
+        day: step,
+        date: `Tomorrow ${s}`,
+        day_name: s,
+        predicted_close: Math.round(proj * 100) / 100,
+        upper_bound: Math.round((proj + spread) * 100) / 100,
+        lower_bound: Math.round((proj - spread) * 100) / 100,
+        confidence_pct: Math.round((96 - step * 2.1) * 10) / 10,
+        trend: 'UP'
+      };
+    });
+
     return {
       ...summary,
       description: `${summary.name} is actively tracked by TradeAI for real-time volatility and multi-timeframe momentum.`,
@@ -590,7 +607,8 @@ export class TradeApiService {
       day_low: baseP * 0.985,
       pe_ratio: 16.4,
       historical_data: hist,
-      forecast_next_week: forecast
+      forecast_next_week: forecast,
+      forecast_1d: forecast1D
     };
   }
 

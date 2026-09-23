@@ -88,10 +88,11 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
       <div class="content-grid">
         <!-- Left Column: Interactive Multi-Timeframe Chart + Forecast Table -->
         <div class="left-col">
-          <!-- Main Interactive Chart with 1D, 1W, 1M, 1Y, 5Y & 7D Forecast -->
+          <!-- Main Interactive Chart with 1D, 1W, 1M, 1Y, 5Y, 1D & 7D Forecast -->
           <app-trading-chart
             [historicalData]="stock.historical_data"
             [forecastPoints]="stock.forecast_next_week"
+            [forecast1DPoints]="stock.forecast_1d || []"
             [currency]="stock.currency"
             [currentRsi]="stock.morning_signal?.rsi || 44.5"
           ></app-trading-chart>

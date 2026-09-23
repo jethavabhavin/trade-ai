@@ -66,6 +66,7 @@ export interface StockDetail extends StockSummary {
   pe_ratio?: number;
   historical_data: { [timeframe: string]: PricePoint[] };
   forecast_next_week: ForecastPoint[];
+  forecast_1d?: ForecastPoint[];
 }
 
 export interface UserProfile {

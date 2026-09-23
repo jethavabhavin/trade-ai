@@ -1,13 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from sqlalchemy.orm import Session
+
 try:
     from backend.models import (
         MorningSignal, ForecastPoint, MultiAgentRequest, 
         MultiAgentAnalysisResponse
     )
     from backend.data_store import db
-    from backend.db_models import UserDB
+    from backend.db_models import UserDB, PredictionDB
+    from backend.database import get_db
     from backend.auth_utils import get_current_user
     from backend.agents import OrchestratorAgent, orchestrator
 except ImportError:
@@ -16,7 +19,8 @@ except ImportError:
         MultiAgentAnalysisResponse
     )
     from data_store import db
-    from db_models import UserDB
+    from db_models import UserDB, PredictionDB
+    from database import get_db
     from auth_utils import get_current_user
     from agents import OrchestratorAgent, orchestrator
 
@@ -120,6 +124,38 @@ def run_multi_agent_analysis(
         raise HTTPException(status_code=500, detail=f"Multi-Agent pipeline failure: {result.error}")
     return result.data
 
+@router.get("/predictions/history")
+def get_prediction_history(
+    symbol: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    db_session: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves stored historical predictions from the database.
+    Optionally filter by symbol. Sorted newest first.
+    """
+    query = db_session.query(PredictionDB)
+    if symbol:
+        query = query.filter(PredictionDB.symbol == symbol.upper().strip())
+    rows = query.order_by(PredictionDB.predicted_at.desc()).limit(limit).all()
+    return [r.to_dict() for r in rows]
+
+@router.get("/predictions/latest/{symbol}")
+def get_latest_prediction(
+    symbol: str,
+    db_session: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Retrieves the latest stored AI prediction and forecast for a given stock symbol from the DB.
+    """
+    sym_upper = symbol.upper().strip()
+    row = db_session.query(PredictionDB).filter(PredictionDB.symbol == sym_upper).order_by(PredictionDB.predicted_at.desc()).first()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"No stored prediction found for symbol '{sym_upper}'")
+    return row.to_dict()
+
 @router.get("/{symbol}/multi-agent-analysis", response_model=MultiAgentAnalysisResponse)
 def get_multi_agent_analysis(
     symbol: str,
@@ -138,3 +174,4 @@ def get_multi_agent_analysis(
     if result.status == "ERROR":
         raise HTTPException(status_code=500, detail=f"Multi-Agent pipeline failure: {result.error}")
     return result.data
+
