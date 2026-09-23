@@ -1,7 +1,9 @@
-import { Component, OnInit, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, tap, catchError, takeUntil } from 'rxjs/operators';
 import { TradeApiService } from '../../services/trade-api.service';
 import { StockSummary } from '../../models/trade.models';
 
@@ -14,10 +16,13 @@ import { StockSummary } from '../../models/trade.models';
       <div class="search-dialog glass-panel" (click)="$event.stopPropagation()">
         <!-- Search Input Bar -->
         <div class="search-input-header">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2fe" stroke-width="2.5">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+          <div class="search-icon-box">
+            <svg *ngIf="!isSearching" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2fe" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <div *ngIf="isSearching" class="search-spinner" title="Searching live markets..."></div>
+          </div>
           <input
             #searchInput
             type="text"
@@ -28,7 +33,7 @@ import { StockSummary } from '../../models/trade.models';
             (keydown.escape)="close()"
             autofocus
           />
-          <button class="clear-btn" *ngIf="searchQuery" (click)="searchQuery = ''; onSearchInput()">✕</button>
+          <button class="clear-btn" *ngIf="searchQuery" (click)="clearSearch()">✕</button>
           <kbd class="esc-badge" (click)="close()">ESC</kbd>
         </div>
 
@@ -39,11 +44,17 @@ import { StockSummary } from '../../models/trade.models';
           <button class="quick-tag-chip" (click)="setQuery('RELIANCE')">Reliance</button>
           <button class="quick-tag-chip" (click)="setQuery('TCS')">TCS</button>
           <button class="quick-tag-chip" (click)="setQuery('GOLDBEES')">Gold ETF</button>
+          <button class="quick-tag-chip" (click)="setQuery('TATSILV')">Tata Silver</button>
         </div>
 
         <!-- Search Results List -->
         <div class="search-results-list">
-          <div *ngIf="results.length === 0" class="no-results">
+          <div *ngIf="isSearching && results.length === 0" class="searching-state">
+            <div class="searching-pulse"></div>
+            <p>Searching live market assets & exchanges...</p>
+          </div>
+
+          <div *ngIf="!isSearching && results.length === 0" class="no-results">
             <p>No matching stocks or ETFs found for "{{ searchQuery }}".</p>
           </div>
 
@@ -111,6 +122,27 @@ import { StockSummary } from '../../models/trade.models';
       background: #111a2d;
     }
 
+    .search-icon-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+    }
+
+    .search-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0, 242, 254, 0.2);
+      border-top-color: #00f2fe;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .main-search-input {
       flex: 1;
       background: transparent;
@@ -118,6 +150,7 @@ import { StockSummary } from '../../models/trade.models';
       color: var(--text-primary);
       font-size: 1.0625rem;
       font-family: var(--font-main);
+      outline: none;
     }
     .main-search-input::placeholder {
       color: var(--text-muted);
@@ -127,7 +160,16 @@ import { StockSummary } from '../../models/trade.models';
     .clear-btn {
       color: var(--text-muted);
       font-size: 0.875rem;
-      padding: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .clear-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.15);
     }
 
     .esc-badge {
@@ -168,16 +210,43 @@ import { StockSummary } from '../../models/trade.models';
       border: 1px solid var(--border-color);
       white-space: nowrap;
       transition: all 0.15s ease;
+      cursor: pointer;
     }
     .quick-tag-chip:hover {
       border-color: #00f2fe;
       color: #00f2fe;
+      background: rgba(0, 242, 254, 0.08);
     }
 
     .search-results-list {
       max-height: 380px;
       overflow-y: auto;
       padding: 8px;
+    }
+
+    .searching-state {
+      padding: 32px;
+      text-align: center;
+      color: #00f2fe;
+      font-size: 0.875rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .searching-pulse {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0, 242, 254, 0.2);
+      border: 2px solid #00f2fe;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.15); opacity: 1; }
     }
 
     .no-results {
@@ -262,10 +331,14 @@ import { StockSummary } from '../../models/trade.models';
     }
   `]
 })
-export class SearchModalComponent implements OnInit {
+export class SearchModalComponent implements OnInit, OnDestroy {
   isOpen: boolean = false;
   searchQuery: string = '';
   results: StockSummary[] = [];
+  isSearching: boolean = false;
+
+  private searchSubject = new Subject<string>();
+  private destroy$ = new Subject<void>();
 
   constructor(
     private api: TradeApiService,
@@ -273,12 +346,51 @@ export class SearchModalComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.api.searchModalOpen$.subscribe(open => {
-      this.isOpen = open;
-      if (open) {
-        this.onSearchInput();
-      }
-    });
+    this.api.searchModalOpen$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(open => {
+        this.isOpen = open;
+        if (open) {
+          // Immediately trigger initial load when modal opens
+          this.searchSubject.next(this.searchQuery);
+        }
+      });
+
+    // RxJS Debounce Pipeline (300ms debounce + distinctUntilChanged + switchMap)
+    this.searchSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        tap(() => {
+          this.isSearching = true;
+        }),
+        switchMap(query => {
+          const trimmed = (query || '').trim();
+          if (!trimmed) {
+            return this.api.getStocks().pipe(
+              catchError(() => of([] as StockSummary[]))
+            );
+          }
+          return this.api.searchStocks(trimmed).pipe(
+            catchError(() => of([] as StockSummary[]))
+          );
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: res => {
+          this.results = res || [];
+          this.isSearching = false;
+        },
+        error: () => {
+          this.isSearching = false;
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -295,17 +407,16 @@ export class SearchModalComponent implements OnInit {
 
   setQuery(q: string): void {
     this.searchQuery = q;
-    this.onSearchInput();
+    this.searchSubject.next(q);
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.searchSubject.next('');
   }
 
   onSearchInput(): void {
-    if (!this.searchQuery.trim()) {
-      this.api.getStocks().subscribe(s => this.results = s);
-    } else {
-      this.api.searchStocks(this.searchQuery).subscribe(res => {
-        this.results = res;
-      });
-    }
+    this.searchSubject.next(this.searchQuery);
   }
 
   selectStock(symbol: string): void {
