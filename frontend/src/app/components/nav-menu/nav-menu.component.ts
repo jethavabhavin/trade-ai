@@ -40,8 +40,8 @@ import { UserProfile } from '../../models/trade.models';
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
               </svg>
             </div>
-            <span>Tata Steel ETF</span>
-            <span class="badge-mini-hot">HOT</span>
+            <span>Deep Dive Analytics</span>
+            <span class="badge-mini-hot">AI</span>
           </a>
 
           <a routerLink="/watchlist" routerLinkActive="active" class="nav-link">

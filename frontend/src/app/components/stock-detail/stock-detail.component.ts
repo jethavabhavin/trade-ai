@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +20,27 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
     MultiAgentPanelComponent
   ],
   template: `
-    <div class="stock-detail-page" *ngIf="stock">
+    <!-- Skeleton Full Page Loader -->
+    <div class="stock-detail-page" *ngIf="isLoading">
+      <div class="detail-header glass-panel">
+        <div class="skeleton-shimmer skeleton-line lg w-1-3"></div>
+        <div class="skeleton-shimmer skeleton-line xl w-1-4"></div>
+      </div>
+      <div class="content-grid" style="margin-top: 20px;">
+        <div class="left-col">
+          <div class="glass-panel loading-area-container" style="min-height: 460px;">
+            <div class="spinner-ring"></div>
+            <span class="loading-pulse-text">Fetching Live Candlesticks & Neural Forecast Curves...</span>
+          </div>
+        </div>
+        <div class="right-col">
+          <div class="skeleton-shimmer skeleton-card" style="height: 260px;"></div>
+          <div class="skeleton-shimmer skeleton-card" style="height: 200px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stock-detail-page" *ngIf="!isLoading && stock">
       <!-- Breadcrumb & Top Bar -->
       <div class="detail-header glass-panel">
         <div class="stock-identity">
@@ -37,6 +57,11 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
             <span class="change-pill" [class.bullish]="stock.change_pct >= 0" [class.bearish]="stock.change_pct < 0">
               {{ stock.change_pct >= 0 ? '▲ +' : '▼ ' }}{{ stock.change_amount }} ({{ stock.change_pct }}%)
             </span>
+          </div>
+          <div class="sub-metrics-row mono">
+            <span class="sub-metric">Prev Close: <strong>{{ stock.currency }}{{ (stock.previous_close || (stock.current_price - stock.change_amount)) | number:'1.2-2' }}</strong></span>
+            <span class="sub-sep">•</span>
+            <span class="sub-metric">Today's Open: <strong>{{ stock.currency }}{{ (stock.today_open || stock.current_price) | number:'1.2-2' }}</strong></span>
           </div>
           <span class="sub-label mono">Live Market Price • Updated Pre-Session</span>
         </div>
@@ -178,6 +203,14 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
 
             <div class="stats-grid">
               <div class="stat-box">
+                <span class="stat-lbl">Previous Close</span>
+                <span class="stat-val mono">{{ stock.currency }}{{ (stock.previous_close || (stock.current_price - stock.change_amount)) | number:'1.2-2' }}</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-lbl">Today's Open</span>
+                <span class="stat-val mono">{{ stock.currency }}{{ (stock.today_open || stock.current_price) | number:'1.2-2' }}</span>
+              </div>
+              <div class="stat-box">
                 <span class="stat-lbl">52-Week High</span>
                 <span class="stat-val mono">{{ stock.currency }}{{ stock.week_high_52 | number:'1.2-2' }}</span>
               </div>
@@ -249,16 +282,16 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
             </div>
           </div>
 
-          <!-- Spotlight on Tata Steel ETF Advantages if TATASIL -->
-          <div class="tatasil-special-card glass-panel" *ngIf="stock.symbol === 'TATASIL'">
+          <!-- Spotlight on Selected Stock Advantages & Insights -->
+          <div class="tatasil-special-card glass-panel" *ngIf="stock">
             <div class="special-badge">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
-              <span>Tata Steel ETF Special Drivers</span>
+              <span>{{ stock.name }} Special Drivers & Insights</span>
             </div>
             <p class="special-desc">
-              Tata Steel ETF is primed for strong next-week performance due to national infrastructure capex, export quota expansions, and lower coking coal input costs.
+              {{ stock.description || (stock.name + ' is actively tracked by TradeAI neural transformers for technical breakouts, institutional volume flow, and multi-timeframe price discovery.') }}
             </p>
           </div>
         </div>
@@ -851,6 +884,7 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
 })
 export class StockDetailComponent implements OnInit {
   stock: StockDetail | null = null;
+  isLoading: boolean = true;
   isWatchlisted: boolean = false;
   showTradeModal: boolean = false;
   tradeAction: 'BUY' | 'SELL' = 'BUY';
@@ -861,34 +895,41 @@ export class StockDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private api: TradeApiService
-  ) {
-    this.stock = this.api.getFallbackStockDetail('TATASIL');
-  }
+    private api: TradeApiService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
-    this.api.currentUser$.subscribe(u => this.currentUser = u);
+    this.api.currentUser$.subscribe(u => {
+      this.currentUser = u;
+      this.cdr.markForCheck();
+    });
 
     this.route.paramMap.subscribe(params => {
       const sym = params.get('symbol') || 'TATASIL';
-      this.stock = this.api.getFallbackStockDetail(sym);
       this.loadStock(sym);
       this.loadTimesFMPrediction(sym);
     });
   }
 
   loadStock(symbol: string): void {
+    this.isLoading = true;
+    this.cdr.markForCheck();
     this.api.getStockDetail(symbol).subscribe({
       next: (detail) => {
-        if (detail) {
-          this.stock = detail;
-        }
+        this.stock = detail || this.api.getFallbackStockDetail(symbol);
+        this.isLoading = false;
         this.api.currentUser$.subscribe(u => {
-          this.isWatchlisted = u.watchlist.includes(symbol.toUpperCase());
+          if (u && u.watchlist) {
+            this.isWatchlisted = u.watchlist.includes(symbol.toUpperCase());
+          }
         });
+        this.cdr.markForCheck();
       },
       error: () => {
         this.stock = this.api.getFallbackStockDetail(symbol);
+        this.isLoading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -899,22 +940,28 @@ export class StockDetailComponent implements OnInit {
       if (this.stock && res.forecast_points && res.forecast_points.length > 0) {
         this.stock.forecast_next_week = res.forecast_points;
       }
+      this.cdr.markForCheck();
     });
   }
 
   runTimesFMInference(): void {
     if (!this.stock) return;
     this.isRunningTimesFM = true;
+    this.cdr.markForCheck();
     this.api.getTimesFMPrediction(this.stock.symbol).subscribe({
       next: (res) => {
         this.timesfmResult = res;
         if (this.stock && res.forecast_points) {
           this.stock.forecast_next_week = res.forecast_points;
         }
-        setTimeout(() => this.isRunningTimesFM = false, 400);
+        setTimeout(() => {
+          this.isRunningTimesFM = false;
+          this.cdr.markForCheck();
+        }, 400);
       },
       error: () => {
         this.isRunningTimesFM = false;
+        this.cdr.markForCheck();
       }
     });
   }

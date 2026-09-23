@@ -71,7 +71,7 @@ import { StockSummary, UserProfile } from '../../models/trade.models';
 
       <div class="empty-state glass-panel" *ngIf="watchlistedStocks.length === 0">
         <h3>No assets in your watchlist yet.</h3>
-        <p>Search for Tata Steel ETF (TATASIL), NIFTY 50, or Reliance to add them.</p>
+        <p>Search any stock, ETF, or Index to add them to your watchlist.</p>
         <button class="btn btn-primary" (click)="openSearch()">Search Stocks</button>
       </div>
     </div>

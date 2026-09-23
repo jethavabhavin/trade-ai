@@ -22,7 +22,7 @@ import { StockSummary } from '../../models/trade.models';
             #searchInput
             type="text"
             class="main-search-input"
-            placeholder="Search Tata Steel ETF (TATASIL), NIFTY 50, Reliance, Apple..."
+            placeholder="Search any stock, ETF, or Index (e.g. NIFTY 50, Reliance, Apple, Tata Steel, IONQ)..."
             [(ngModel)]="searchQuery"
             (input)="onSearchInput()"
             (keydown.escape)="close()"
@@ -34,10 +34,10 @@ import { StockSummary } from '../../models/trade.models';
 
         <!-- Quick Tags -->
         <div class="quick-tags-row">
-          <span class="tag-title">Quick Picks:</span>
-          <button class="quick-tag-chip" (click)="setQuery('TATASIL')">⚡ Tata Steel ETF</button>
-          <button class="quick-tag-chip" (click)="setQuery('NIFTY50')">NIFTY 50</button>
+          <span class="tag-title">Trending:</span>
+          <button class="quick-tag-chip" (click)="setQuery('NIFTY50')">⚡ NIFTY 50</button>
           <button class="quick-tag-chip" (click)="setQuery('RELIANCE')">Reliance</button>
+          <button class="quick-tag-chip" (click)="setQuery('TCS')">TCS</button>
           <button class="quick-tag-chip" (click)="setQuery('GOLDBEES')">Gold ETF</button>
         </div>
 

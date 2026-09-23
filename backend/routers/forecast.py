@@ -40,12 +40,13 @@ def get_market_digest(current_user: UserDB = Depends(get_current_user)) -> Dict[
     hold_signals = [s for s in signals if "HOLD" in s.action]
 
     top_bullish = buy_signals[0] if buy_signals else None
+    top_name = f"{top_bullish.name} ({top_bullish.symbol})" if top_bullish else "Sector Leaders"
     
     return {
         "date": datetime.now().strftime("%A, %B %d, %Y"),
         "generated_time": "08:45 AM IST",
         "market_sentiment": "BULLISH (74% Positive Sentiment)",
-        "summary": "Pre-market futures show strong institutional inflows into metal & commodities (Tata Steel ETF leading) and benchmark index components. Momentum indicators suggest aggressive opening rally.",
+        "summary": f"Pre-market futures show strong institutional inflows into leading equities ({top_name} leading) and benchmark index components. Momentum indicators suggest active opening rally.",
         "signals_count": {
             "total": len(signals),
             "buy": len(buy_signals),

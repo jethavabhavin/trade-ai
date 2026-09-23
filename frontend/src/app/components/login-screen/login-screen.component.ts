@@ -34,7 +34,7 @@ import { AuthService } from '../../services/auth.service';
               <div class="feature-icon">🧠</div>
               <div class="feature-text">
                 <strong>Google TimesFM 3.0 Foundation Model</strong>
-                <span>Multi-step neural transformer forecasting for NIFTY & Tata Steel ETF</span>
+                <span>Multi-step neural transformer forecasting for equities, ETFs & market indices</span>
               </div>
             </div>
 

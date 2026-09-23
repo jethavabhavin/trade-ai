@@ -555,7 +555,9 @@ class LiveMarketService:
             highs = df_daily["High"].dropna().tolist()
             lows = df_daily["Low"].dropna().tolist()
             volumes = df_daily["Volume"].dropna().tolist()
+            opens = df_daily["Open"].dropna().tolist()
 
+            today_open = round(float(opens[-1]), 2) if opens else current_p
             day_high = round(float(highs[-1]), 2) if highs else current_p
             day_low = round(float(lows[-1]), 2) if lows else current_p
             vol_last = int(volumes[-1]) if volumes else 100000
@@ -714,15 +716,12 @@ class LiveMarketService:
                 w52_low = round(min(lows), 2)
                 mcap_str = f"{meta['currency']}100B"
 
-            # 4. Generate TimesFM Forecast from Live Series
+            # 4. Fast Dynamic 7-Day Forecast from Live Series
             clean_closes = [round(float(c), 2) for c in closes]
-            prediction_res = ForecastEngine.run_timesfm_prediction(
-                symbol=symbol_upper,
-                name=meta["name"],
-                current_price=current_p,
-                historical_closes=clean_closes
+            forecast_points = ForecastEngine.generate_next_week_forecast(
+                base_price=current_p,
+                historical_close_prices=clean_closes
             )
-            forecast_points = prediction_res.get("forecast_points", [])
 
             # 5. Calculate Live 9:00 AM Morning Signal
             morning_signal = ForecastEngine.generate_morning_signal(
@@ -755,7 +754,9 @@ class LiveMarketService:
                 historical_data=historical_data,
                 forecast_next_week=forecast_points,
                 morning_signal=morning_signal,
-                sparkline=sparkline
+                sparkline=sparkline,
+                previous_close=prev_p,
+                today_open=today_open
             )
 
             # Store in Cache
@@ -818,7 +819,9 @@ class LiveMarketService:
                     volume_24h=detail.volume_24h,
                     market_cap=detail.market_cap,
                     sparkline=detail.sparkline,
-                    morning_signal=detail.morning_signal
+                    morning_signal=detail.morning_signal,
+                    previous_close=detail.previous_close,
+                    today_open=detail.today_open
                 )
             except Exception as e:
                 logger.warning(f"Could not load live summary for {sym}: {e}")

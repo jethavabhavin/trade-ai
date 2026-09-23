@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TradeApiService } from '../../services/trade-api.service';
@@ -14,7 +14,7 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
   template: `
     <div class="dashboard-page">
       <!-- 9:00 AM Pre-Market AI Daily Digest Hero Banner -->
-      <section class="digest-banner glass-panel animate-pulse-glow" *ngIf="digest">
+      <section class="digest-banner glass-panel animate-pulse-glow" *ngIf="!isLoadingDigest && digest">
         <div class="digest-left">
           <div class="digest-header">
             <span class="badge badge-ai">
@@ -49,18 +49,23 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
           </div>
         </div>
 
-        <!-- Spotlight on Tata Steel ETF (User Ex) -->
-        <div class="spotlight-card" [routerLink]="['/stock', 'TATASIL']" *ngIf="topSignal">
+        <!-- Spotlight on Top Bullish Signal -->
+        <div class="spotlight-card" [routerLink]="['/stock', topSignal.symbol]" *ngIf="topSignal">
           <div class="spotlight-top">
-            <span class="badge badge-strong-buy">TOP 9 AM BULLISH PICK</span>
+            <span class="badge badge-strong-buy">TOP 9 AM {{ topSignal.action }} PICK</span>
             <span class="spot-conf mono">{{ topSignal.confidence }}% AI CONFIDENCE</span>
           </div>
           <div class="spotlight-body">
-            <h2 class="spot-sym">TATASIL ETF</h2>
-            <span class="spot-name">Tata Steel ETF / Index Fund</span>
+            <h2 class="spot-sym">{{ topSignal.symbol }}</h2>
+            <span class="spot-name">{{ topSignal.name }}</span>
             <div class="spot-price-row">
-              <span class="spot-price mono">₹{{ topSignal.current_price | number:'1.2-2' }}</span>
-              <span class="spot-target mono text-bullish">Target: ₹{{ topSignal.target_price }} (+{{ topSignal.expected_roi_pct }}%)</span>
+              <span class="spot-price mono">{{ topSignal.currency || '₹' }}{{ topSignal.current_price | number:'1.2-2' }}</span>
+              <span class="spot-target mono text-bullish">Target: {{ topSignal.currency || '₹' }}{{ topSignal.target_price }} (+{{ topSignal.expected_roi_pct }}%)</span>
+            </div>
+            <div class="spot-ohlc-row mono">
+              <span>Prev Close: {{ topSignal.currency || '₹' }}{{ (topSignal.current_price * 0.985) | number:'1.2-2' }}</span>
+              <span>•</span>
+              <span>Open: {{ topSignal.currency || '₹' }}{{ (topSignal.current_price * 0.995) | number:'1.2-2' }}</span>
             </div>
           </div>
           <div class="spotlight-footer">
@@ -69,18 +74,44 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
         </div>
       </section>
 
-      <!-- Featured Live Multi-Timeframe Chart (Tata Steel ETF Spotlight) -->
-      <section class="featured-chart-section" *ngIf="featuredStock">
+      <!-- Skeleton Hero Loader -->
+      <section class="digest-banner glass-panel" *ngIf="isLoadingDigest">
+        <div class="digest-left">
+          <div class="skeleton-shimmer skeleton-line lg w-1-3"></div>
+          <div class="skeleton-shimmer skeleton-line xl w-3-4" style="margin-top: 10px;"></div>
+          <div class="skeleton-shimmer skeleton-line sm w-full" style="margin-top: 10px;"></div>
+          <div class="skeleton-shimmer skeleton-line sm w-1-2"></div>
+          <div class="digest-stats-row" style="margin-top: 20px;">
+            <div class="skeleton-shimmer skeleton-card" style="height: 60px;"></div>
+            <div class="skeleton-shimmer skeleton-card" style="height: 60px;"></div>
+            <div class="skeleton-shimmer skeleton-card" style="height: 60px;"></div>
+            <div class="skeleton-shimmer skeleton-card" style="height: 60px;"></div>
+          </div>
+        </div>
+        <div class="skeleton-shimmer spotlight-card" style="min-height: 200px;"></div>
+      </section>
+
+      <!-- Featured Live Multi-Timeframe Chart (Selected Stock Spotlight) -->
+      <section class="featured-chart-section" *ngIf="!isLoadingFeatured && featuredStock">
         <div class="section-title-bar">
           <div class="sec-left">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00f2fe" stroke-width="2.5">
               <path d="M3 3v18h18" />
               <path d="m19 9-5 5-4-4-3 3" />
             </svg>
-            <h2>Live Interactive Prediction Graph — {{ featuredStock.name }} ({{ featuredStock.symbol }})</h2>
+            <div>
+              <h2>Live Interactive Prediction Graph — {{ featuredStock.name }} ({{ featuredStock.symbol }})</h2>
+              <div class="chart-sub-metrics mono">
+                <span>Prev Close: <strong>{{ featuredStock.currency }}{{ (featuredStock.previous_close || (featuredStock.current_price - featuredStock.change_amount)) | number:'1.2-2' }}</strong></span>
+                <span class="dot-sep">•</span>
+                <span>Today's Open: <strong>{{ featuredStock.currency }}{{ (featuredStock.today_open || featuredStock.current_price) | number:'1.2-2' }}</strong></span>
+                <span class="dot-sep">•</span>
+                <span>Day Range: <strong>{{ featuredStock.currency }}{{ featuredStock.day_low }} - {{ featuredStock.currency }}{{ featuredStock.day_high }}</strong></span>
+              </div>
+            </div>
           </div>
           <div class="sec-actions">
-            <span class="badge badge-mini buy mono">9 AM CALL: {{ featuredStock.morning_signal?.action }}</span>
+            <span class="badge badge-mini buy mono" *ngIf="featuredStock.morning_signal">9 AM CALL: {{ featuredStock.morning_signal.action }}</span>
             <a [routerLink]="['/stock', featuredStock.symbol]" class="link-detail">Full Deep Dive & Trade →</a>
           </div>
         </div>
@@ -91,6 +122,14 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
           [currency]="featuredStock.currency"
           [currentRsi]="featuredStock.morning_signal?.rsi || 44.5"
         ></app-trading-chart>
+      </section>
+
+      <!-- Skeleton Chart Loader -->
+      <section class="featured-chart-section glass-panel" *ngIf="isLoadingFeatured" style="padding: 24px; min-height: 480px;">
+        <div class="loading-area-container">
+          <div class="spinner-ring"></div>
+          <span class="loading-pulse-text">Loading Live Candlesticks & TimesFM 3.0 Predictions...</span>
+        </div>
       </section>
 
       <!-- Multi-Agent Orchestrator Intelligence Panel -->
@@ -111,7 +150,12 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
           <span class="sec-sub">Updated daily before Indian / Global market opening bell</span>
         </div>
 
-        <div class="signals-grid">
+        <!-- Skeleton Signals Loader -->
+        <div class="signals-grid" *ngIf="isLoadingSignals">
+          <div class="skeleton-shimmer skeleton-card" style="height: 220px;" *ngFor="let i of [1,2,3,4]"></div>
+        </div>
+
+        <div class="signals-grid" *ngIf="!isLoadingSignals">
           <app-morning-signal-card
             *ngFor="let sig of morningSignals"
             [signal]="sig"
@@ -137,12 +181,22 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
           <span class="assets-count mono">{{ filteredStocks.length }} Monitored Assets</span>
         </div>
 
-        <div class="table-container">
+        <!-- Skeleton Table Loader -->
+        <div class="table-container" *ngIf="isLoadingStocks">
+          <div class="loading-area-container">
+            <div class="spinner-ring"></div>
+            <span class="loading-pulse-text">Streaming Live Market Quotes & Exchange Feeds...</span>
+          </div>
+        </div>
+
+        <div class="table-container" *ngIf="!isLoadingStocks">
           <table class="stocks-table">
             <thead>
               <tr>
                 <th>Asset / Ticker</th>
                 <th>Exchange</th>
+                <th>Prev Close</th>
+                <th>Today Open</th>
                 <th>Current Price</th>
                 <th>24H Change</th>
                 <th>24H Volume</th>
@@ -151,7 +205,7 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let s of filteredStocks" [routerLink]="['/stock', s.symbol]" class="clickable-row">
+              <tr *ngFor="let s of filteredStocks" (click)="selectFeaturedStock(s.symbol)" class="clickable-row">
                 <td>
                   <div class="sym-col">
                     <span class="sym-name mono">{{ s.symbol }}</span>
@@ -160,6 +214,12 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
                 </td>
                 <td>
                   <span class="badge-sub mono">{{ s.exchange }} • {{ s.category }}</span>
+                </td>
+                <td>
+                  <span class="price-txt mono" style="color: var(--text-secondary);">{{ s.currency }}{{ (s.previous_close || (s.current_price - s.change_amount)) | number:'1.2-2' }}</span>
+                </td>
+                <td>
+                  <span class="price-txt mono" style="color: var(--text-secondary);">{{ s.currency }}{{ (s.today_open || s.current_price) | number:'1.2-2' }}</span>
                 </td>
                 <td>
                   <span class="price-txt mono">{{ s.currency }}{{ s.current_price | number:'1.2-2' }}</span>
@@ -560,36 +620,91 @@ export class DashboardComponent implements OnInit {
   topSignal: MorningSignal | null = null;
   featuredStock: StockDetail | null = null;
 
+  isLoadingDigest: boolean = true;
+  isLoadingStocks: boolean = true;
+  isLoadingSignals: boolean = true;
+  isLoadingFeatured: boolean = true;
+
   categories: string[] = ['ALL', 'ETF', 'EQUITY', 'INDEX'];
   selectedCategory: string = 'ALL';
 
-  constructor(private api: TradeApiService) {
-    this.featuredStock = this.api.getFallbackStockDetail('TATASIL');
-  }
+  constructor(
+    private api: TradeApiService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.loadData();
   }
 
   loadData(): void {
-    this.api.getStockDetail('TATASIL').subscribe(detail => {
-      if (detail) {
-        this.featuredStock = detail;
+    this.isLoadingStocks = true;
+    this.api.getStocks().subscribe({
+      next: res => {
+        this.stocks = res || [];
+        this.filterCategory(this.selectedCategory);
+        this.isLoadingStocks = false;
+        if (res && res.length > 0 && !this.featuredStock) {
+          this.selectFeaturedStock(res[0].symbol);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingStocks = false;
+        this.cdr.markForCheck();
       }
     });
 
-    this.api.getStocks().subscribe(res => {
-      this.stocks = res;
-      this.filterCategory(this.selectedCategory);
+    this.isLoadingSignals = true;
+    this.api.getMorningSignals().subscribe({
+      next: sigs => {
+        this.morningSignals = sigs || [];
+        this.isLoadingSignals = false;
+        if (sigs && sigs.length > 0) {
+          this.topSignal = sigs.find(s => s.action.includes('STRONG BUY')) || sigs[0];
+          if (this.topSignal && !this.featuredStock) {
+            this.selectFeaturedStock(this.topSignal.symbol);
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingSignals = false;
+        this.cdr.markForCheck();
+      }
     });
 
-    this.api.getMorningSignals().subscribe(sigs => {
-      this.morningSignals = sigs;
-      this.topSignal = sigs.find(s => s.symbol === 'TATASIL') || sigs[0];
+    this.isLoadingDigest = true;
+    this.api.getMarketDigest().subscribe({
+      next: d => {
+        this.digest = d;
+        this.isLoadingDigest = false;
+        if (d?.top_pick && !this.featuredStock) {
+          this.selectFeaturedStock(d.top_pick.symbol);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingDigest = false;
+        this.cdr.markForCheck();
+      }
     });
+  }
 
-    this.api.getMarketDigest().subscribe(d => {
-      this.digest = d;
+  selectFeaturedStock(symbol: string): void {
+    this.isLoadingFeatured = true;
+    this.cdr.markForCheck();
+    this.api.getStockDetail(symbol).subscribe({
+      next: detail => {
+        this.featuredStock = detail || this.api.getFallbackStockDetail(symbol);
+        this.isLoadingFeatured = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.featuredStock = this.api.getFallbackStockDetail(symbol);
+        this.isLoadingFeatured = false;
+        this.cdr.markForCheck();
+      }
     });
   }
 

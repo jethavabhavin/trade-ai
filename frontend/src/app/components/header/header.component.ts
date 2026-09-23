@@ -73,7 +73,7 @@ import { StockSummary, UserProfile } from '../../models/trade.models';
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <span class="search-placeholder">Search Tata Steel ETF (TATASIL), NIFTY, Stocks...</span>
+          <span class="search-placeholder">Search any stock, ETF, or Index (Ctrl + K)...</span>
           <kbd class="shortcut-key">Ctrl + K</kbd>
         </div>
       </div>

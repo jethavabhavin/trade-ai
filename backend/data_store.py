@@ -55,7 +55,7 @@ class DataStore:
             PortfolioPosition(
                 id="pos_1",
                 symbol="TATASIL",
-                name="Tata Steel ETF / Index Fund",
+                name="Tata Steel Limited",
                 shares=250.0,
                 average_buy_price=152.00,
                 current_price=152.00,

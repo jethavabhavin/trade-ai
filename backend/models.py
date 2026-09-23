@@ -53,6 +53,8 @@ class StockSummary(BaseModel):
     market_cap: str
     sparkline: List[float]
     morning_signal: Optional[MorningSignal] = None
+    previous_close: Optional[float] = None
+    today_open: Optional[float] = None
 
 class StockDetail(StockSummary):
     description: str

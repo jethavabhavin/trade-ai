@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, of, catchError, tap } from 'rxjs';
+import { Observable, BehaviorSubject, of, catchError, tap, timeout } from 'rxjs';
 import {
   StockSummary,
   StockDetail,
@@ -56,6 +56,7 @@ export class TradeApiService {
       : `${this.baseUrl}/stocks`;
     
     return this.http.get<StockSummary[]>(url).pipe(
+      timeout(5000),
       catchError(err => {
         console.warn('API connection offline, using fallback data', err);
         return of(this.getFallbackStocks());
@@ -65,6 +66,7 @@ export class TradeApiService {
 
   getStockDetail(symbol: string): Observable<StockDetail> {
     return this.http.get<StockDetail>(`${this.baseUrl}/stocks/${symbol}`).pipe(
+      timeout(6000),
       catchError(err => {
         console.warn(`API detail fetch error for ${symbol}, using generated fallback`, err);
         return of(this.getFallbackStockDetail(symbol));
@@ -74,6 +76,7 @@ export class TradeApiService {
 
   searchStocks(query: string): Observable<StockSummary[]> {
     return this.http.get<StockSummary[]>(`${this.baseUrl}/stocks/search?q=${encodeURIComponent(query)}`).pipe(
+      timeout(4000),
       catchError(() => {
         const q = query.toLowerCase();
         const matches = this.getFallbackStocks().filter(s => 
@@ -87,17 +90,19 @@ export class TradeApiService {
   // Morning 9 AM Signals & Forecasts
   getMorningSignals(): Observable<MorningSignal[]> {
     return this.http.get<MorningSignal[]>(`${this.baseUrl}/forecast/morning-signals`).pipe(
+      timeout(5000),
       catchError(() => of(this.getFallbackMorningSignals()))
     );
   }
 
   getMarketDigest(): Observable<MarketDigest> {
     return this.http.get<MarketDigest>(`${this.baseUrl}/forecast/market-digest`).pipe(
+      timeout(5000),
       catchError(() => of({
         date: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
         generated_time: '08:45 AM IST',
         market_sentiment: 'BULLISH (74% Positive Sentiment)',
-        summary: 'Pre-market futures show strong institutional inflows into metal & commodities (Tata Steel ETF leading) and benchmark index components.',
+        summary: 'Pre-market futures show strong institutional inflows into leading equities and benchmark index components.',
         signals_count: { total: 8, buy: 5, sell: 2, hold: 1 },
         top_pick: this.getFallbackMorningSignals()[0]
       }))
@@ -106,6 +111,7 @@ export class TradeApiService {
 
   getNextWeekForecast(symbol: string): Observable<ForecastPoint[]> {
     return this.http.get<ForecastPoint[]>(`${this.baseUrl}/forecast/${symbol}/next-week`).pipe(
+      timeout(5000),
       catchError(() => of(this.getFallbackStockDetail(symbol).forecast_next_week))
     );
   }
@@ -276,7 +282,7 @@ export class TradeApiService {
       {
         id: 'sig-tatasil-today',
         symbol: 'TATASIL',
-        name: 'Tata Steel ETF / Index Fund',
+        name: 'Tata Steel Limited',
         date: new Date().toISOString().split('T')[0],
         generated_at: '08:45 AM',
         action: 'STRONG BUY',
@@ -577,9 +583,7 @@ export class TradeApiService {
 
     return {
       ...summary,
-      description: summary.symbol === 'TATASIL'
-        ? 'Tata Steel ETF tracks domestic and global steel commodity momentum, metal sector heavyweights, infrastructure expansion demand, and Tata Steel value chain performance.'
-        : `${summary.name} is a high-volume liquid trading instrument on ${summary.exchange}.`,
+      description: `${summary.name} is actively tracked by TradeAI for real-time volatility and multi-timeframe momentum.`,
       week_high_52: baseP * 1.18,
       week_low_52: baseP * 0.72,
       day_high: baseP * 1.025,
@@ -600,7 +604,7 @@ export class TradeApiService {
         {
           id: 'pos_1',
           symbol: 'TATASIL',
-          name: 'Tata Steel ETF / Index Fund',
+          name: 'Tata Steel Limited',
           shares: 250,
           average_buy_price: 152.00,
           current_price: 164.50,

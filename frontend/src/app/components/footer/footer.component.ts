@@ -20,7 +20,7 @@ import { RouterModule } from '@angular/router';
           <div class="link-col">
             <span class="col-head">Core Navigation</span>
             <a routerLink="/">Dashboard</a>
-            <a routerLink="/stock/TATASIL">Tata Steel ETF</a>
+            <a routerLink="/stock/TATASIL">Stock Analytics</a>
             <a routerLink="/watchlist">Watchlist</a>
             <a routerLink="/portfolio">Paper Trading</a>
           </div>

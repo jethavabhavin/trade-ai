@@ -37,6 +37,7 @@ export interface MorningSignal {
   sentiment_score: number;
   rsi: number;
   macd_signal: string;
+  currency?: string;
 }
 
 export interface StockSummary {
@@ -52,6 +53,8 @@ export interface StockSummary {
   market_cap: string;
   sparkline: number[];
   morning_signal?: MorningSignal;
+  previous_close?: number;
+  today_open?: number;
 }
 
 export interface StockDetail extends StockSummary {
