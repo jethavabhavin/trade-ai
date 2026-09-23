@@ -258,11 +258,18 @@ def test_wishlist_db_crud_and_endpoints():
     token = login_res.json()["token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 1. Get initial wishlist
+    # 1. Ensure TATASIL is present for test idempotency
+    client.post("/api/wishlist", json={
+        "symbol": "TATASIL",
+        "name": "Tata Steel Limited",
+        "category": "EQUITY"
+    }, headers=headers)
+
+    # Get wishlist
     wl_res = client.get("/api/wishlist", headers=headers)
     assert wl_res.status_code == 200
     items = wl_res.json()
-    assert len(items) >= 2
+    assert len(items) >= 1
     symbols = [i["symbol"] for i in items]
     assert "TATASIL" in symbols
 
@@ -303,6 +310,93 @@ def test_wishlist_db_crud_and_endpoints():
     del_res = client.delete("/api/wishlist/TATASIL", headers=headers)
     assert del_res.status_code == 200
     assert del_res.json()["status"] == "removed"
+
+def test_pine_script_engine_and_endpoints():
+    """Verify that Pine Script generation, database storage, queries, and file downloads work seamlessly."""
+    # Login as trader
+    login_res = client.post("/api/auth/login", json={
+        "email": "trader@tradeai.app",
+        "password": "TraderPassword@123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Get presets
+    presets_res = client.get("/api/pinescript/presets")
+    assert presets_res.status_code == 200
+    presets = presets_res.json()
+    assert len(presets) >= 5
+    preset_ids = [p["id"] for p in presets]
+    assert "TIMESFM_NEURAL_BANDS" in preset_ids
+    assert "PREMARKET_MOMENTUM" in preset_ids
+    assert "SUPER_TREND_VOLATILITY" in preset_ids
+
+    # 2. Generate Pine Script code for TIMESFM_NEURAL_BANDS
+    gen_res = client.post("/api/pinescript/generate", json={
+        "symbol": "TATASIL",
+        "strategy_preset": "TIMESFM_NEURAL_BANDS",
+        "script_type": "strategy",
+        "timeframe": "15m",
+        "pine_version": "v5",
+        "inputs": {"atr_length": 14, "atr_multiplier": 2.0}
+    }, headers=headers)
+    assert gen_res.status_code == 200
+    gen_data = gen_res.json()
+    assert "//@version=5" in gen_data["code"]
+    assert "strategy(" in gen_data["code"]
+    assert "TATASIL" in gen_data["code"]
+    assert "backtest_stats" in gen_data
+    assert gen_data["backtest_stats"]["win_rate"] > 0
+
+    # 3. Save Pine Script to Database
+    save_res = client.post("/api/pinescript/save", json={
+        "title": "Tata Steel TimesFM Neural Strategy",
+        "symbol": "TATASIL",
+        "script_type": "strategy",
+        "strategy_preset": "TIMESFM_NEURAL_BANDS",
+        "timeframe": "15m",
+        "pine_version": "v5",
+        "code": gen_data["code"],
+        "description": "Multi-horizon neural quantile bands strategy",
+        "inputs": {"atr_length": 14, "atr_multiplier": 2.0},
+        "backtest_stats": gen_data["backtest_stats"]
+    }, headers=headers)
+    assert save_res.status_code == 200
+    saved_item = save_res.json()
+    script_id = saved_item["id"]
+    assert script_id is not None
+    assert saved_item["symbol"] == "TATASIL"
+
+    # 4. Query saved pine scripts list
+    list_res = client.get("/api/pinescript", headers=headers)
+    assert list_res.status_code == 200
+    scripts = list_res.json()
+    assert len(scripts) > 0
+    assert any(s["id"] == script_id for s in scripts)
+
+    # 5. Get script by ID
+    get_res = client.get(f"/api/pinescript/{script_id}", headers=headers)
+    assert get_res.status_code == 200
+    assert get_res.json()["id"] == script_id
+
+    # 6. Update script title/code
+    upd_res = client.put(f"/api/pinescript/{script_id}", json={
+        "title": "Tata Steel TimesFM Neural Strategy v2"
+    }, headers=headers)
+    assert upd_res.status_code == 200
+    assert upd_res.json()["title"] == "Tata Steel TimesFM Neural Strategy v2"
+
+    # 7. Test download endpoint
+    dl_res = client.get(f"/api/pinescript/download/{script_id}", headers=headers)
+    assert dl_res.status_code == 200
+    assert "//@version=5" in dl_res.text
+
+    # 8. Delete script
+    del_res = client.delete(f"/api/pinescript/{script_id}", headers=headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "deleted"
+
 
 
 

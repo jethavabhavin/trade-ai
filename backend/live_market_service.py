@@ -46,16 +46,19 @@ class LiveMarketService:
             return cls.ALIASES[s]
         if "." in s or "^" in s:
             return s
+        db = None
         try:
             from backend.database import SessionLocal
             from backend.db_models import MarketSymbolDB
             db = SessionLocal()
             row = db.query(MarketSymbolDB).filter(MarketSymbolDB.symbol == s).first()
-            db.close()
             if row and row.ticker:
                 return row.ticker
         except Exception:
             pass
+        finally:
+            if db is not None:
+                db.close()
         return f"{s}.NS"
 
     @classmethod
@@ -751,6 +754,7 @@ class LiveMarketService:
         
         # Check DB for metadata
         meta = None
+        s_db = None
         try:
             from backend.database import SessionLocal
             from backend.db_models import MarketSymbolDB
@@ -764,9 +768,11 @@ class LiveMarketService:
                     "currency": row.currency,
                     "description": row.description or f"Live real-time market asset {symbol_upper}."
                 }
-            s_db.close()
         except Exception:
             pass
+        finally:
+            if s_db is not None:
+                s_db.close()
 
         if not meta:
             meta = cls.fetch_symbol_metadata_from_api(symbol_upper)

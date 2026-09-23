@@ -108,6 +108,45 @@ class WishlistUpdateRequest(BaseModel):
     target_buy_price: Optional[float] = None
     notes: Optional[str] = None
 
+class PineScriptGenerateRequest(BaseModel):
+    symbol: str
+    name: Optional[str] = None
+    preset: Optional[str] = "TIMESFM_NEURAL_BANDS" # "TIMESFM_NEURAL_BANDS", "PREMARKET_MOMENTUM", "SUPER_TREND_VOLATILITY", "MULTI_AGENT_FUSION", "AI_BREAKOUT_SCALPER"
+    script_type: Optional[str] = "STRATEGY" # "STRATEGY" or "INDICATOR"
+    timeframe: Optional[str] = "15m" # "1m", "5m", "15m", "1h", "1D"
+    initial_capital: Optional[float] = 100000.0
+    stop_loss_pct: Optional[float] = 2.5
+    take_profit_pct: Optional[float] = 6.0
+    custom_inputs: Optional[Dict[str, Any]] = None
+
+class PineScriptSaveRequest(BaseModel):
+    title: str
+    symbol: str
+    code: str
+    script_type: Optional[str] = "STRATEGY"
+    strategy_preset: Optional[str] = "TIMESFM_NEURAL_BANDS"
+    timeframe: Optional[str] = "15m"
+    pine_version: Optional[str] = "v5"
+    description: Optional[str] = None
+    inputs: Optional[Dict[str, Any]] = None
+    backtest_stats: Optional[Dict[str, Any]] = None
+
+class PineScriptResponse(BaseModel):
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    title: str
+    symbol: str
+    script_type: str
+    strategy_preset: str
+    timeframe: str
+    pine_version: str = "v5"
+    code: str
+    description: Optional[str] = ""
+    inputs: Dict[str, Any] = Field(default_factory=dict)
+    backtest_stats: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[str] = ""
+    updated_at: Optional[str] = ""
+
 class UserLoginRequest(BaseModel):
     email: str
     password: str
@@ -248,3 +287,54 @@ class MultiAgentAnalysisResponse(BaseModel):
     gemini_reasoning: Dict[str, Any]
     risk_assessment: Dict[str, Any]
     agent_execution_traces: List[AgentTraceItem]
+
+# Pine Script Studio Schemas
+class PineScriptGenerateRequest(BaseModel):
+    symbol: str
+    name: Optional[str] = None
+    strategy_preset: Optional[str] = None
+    preset: Optional[str] = None
+    script_type: Optional[str] = "strategy"
+    timeframe: Optional[str] = "15m"
+    pine_version: Optional[str] = "v5"
+    initial_capital: Optional[float] = 100000.0
+    stop_loss_pct: Optional[float] = 2.5
+    take_profit_pct: Optional[float] = 6.0
+    inputs: Optional[Dict[str, Any]] = None
+    custom_inputs: Optional[Dict[str, Any]] = None
+
+class PineScriptSaveRequest(BaseModel):
+    title: str
+    symbol: str
+    script_type: str = "strategy"
+    strategy_preset: str = "TIMESFM_NEURAL_BANDS"
+    timeframe: str = "15m"
+    pine_version: Optional[str] = "v5"
+    code: str
+    description: Optional[str] = None
+    inputs: Optional[Dict[str, Any]] = None
+    backtest_stats: Optional[Dict[str, Any]] = None
+
+class PineScriptUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    timeframe: Optional[str] = None
+    pine_version: Optional[str] = None
+    inputs: Optional[Dict[str, Any]] = None
+    backtest_stats: Optional[Dict[str, Any]] = None
+
+class PineScriptResponse(BaseModel):
+    id: Optional[str] = None
+    title: str
+    symbol: str
+    script_type: str
+    strategy_preset: str
+    timeframe: str
+    pine_version: str
+    code: str
+    description: Optional[str] = None
+    inputs: Dict[str, Any] = {}
+    backtest_stats: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

@@ -199,7 +199,7 @@ import { PricePoint, ForecastPoint } from '../../models/trade.models';
               font-weight="700"
               font-family="Plus Jakarta Sans"
             >
-              NEXT WEEK AI PREDICTION HORIZON
+              {{ forecastHorizon === '1D' ? '1-DAY INTRADAY PREDICTION HORIZON' : 'NEXT WEEK AI PREDICTION HORIZON' }}
             </text>
 
             <!-- Upper & Lower Confidence Area Cloud -->
@@ -236,7 +236,7 @@ import { PricePoint, ForecastPoint } from '../../models/trade.models';
                 font-weight="700"
                 font-family="JetBrains Mono"
               >
-                {{ currency }}{{ fp.price | number:'1.1-1' }}
+                {{ currency }}{{ fp.price | number:'1.2-2' }}
               </text>
               <text
                 [attr.x]="fp.x"

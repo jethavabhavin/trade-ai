@@ -223,6 +223,32 @@ VALUES
 ('wl_usr_demo_01_reliance', 'usr_demo_01', 'RELIANCE', 'Reliance Industries Ltd', 'EQUITY', 2850.00, 'Energy & retail momentum.', CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP;
 
+-- -----------------------------------------------------------------------------
+-- 9. Table structure for `pine_scripts` (TradingView Pine Script Strategies & Indicators)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `pine_scripts` (
+    `id` VARCHAR(64) NOT NULL,
+    `user_id` VARCHAR(36) NOT NULL,
+    `title` VARCHAR(128) NOT NULL,
+    `symbol` VARCHAR(32) NOT NULL,
+    `script_type` VARCHAR(32) NOT NULL DEFAULT 'STRATEGY',
+    `strategy_preset` VARCHAR(64) NOT NULL DEFAULT 'TIMESFM_NEURAL_BANDS',
+    `timeframe` VARCHAR(16) NOT NULL DEFAULT '15m',
+    `pine_version` VARCHAR(8) NOT NULL DEFAULT 'v5',
+    `code` LONGTEXT NOT NULL,
+    `description` TEXT NULL,
+    `inputs_json` LONGTEXT NULL,
+    `backtest_stats_json` LONGTEXT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_pinescript_user_id` (`user_id`),
+    INDEX `idx_pinescript_symbol` (`symbol`),
+    INDEX `idx_pinescript_strategy` (`strategy_preset`),
+    CONSTRAINT `fk_pinescript_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 
 
 

@@ -101,6 +101,51 @@ export interface WishlistItem {
   morning_signal_target?: number;
 }
 
+export interface PineScriptPreset {
+  id: string;
+  name: string;
+  category?: string;
+  description: string;
+  script_type?: string;
+  timeframe?: string;
+  recommended_timeframe?: string;
+  pine_version?: string;
+  recommended_indicators?: string[];
+  default_params?: any;
+  sample_inputs?: any;
+}
+
+export interface PineScriptItem {
+  id?: string;
+  user_id?: string;
+  title: string;
+  symbol: string;
+  script_type: string;
+  strategy_preset: string;
+  timeframe: string;
+  pine_version: string;
+  code: string;
+  description?: string;
+  inputs?: any;
+  backtest_stats?: {
+    win_rate?: number;
+    win_rate_pct?: number;
+    profit_factor?: number;
+    net_profit_pct?: number;
+    net_profit_amount?: number;
+    total_trades?: number;
+    winning_trades?: number;
+    losing_trades?: number;
+    max_drawdown_pct?: number;
+    sharpe_ratio?: number;
+    initial_capital?: number;
+    final_equity?: number;
+    equity_curve?: Array<{ trade: number; equity: number }>;
+  } | any;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: UserProfile;

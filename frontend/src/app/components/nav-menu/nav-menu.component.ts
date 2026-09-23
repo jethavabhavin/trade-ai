@@ -64,6 +64,15 @@ import { UserProfile } from '../../models/trade.models';
       <div class="sidebar-section">
         <span class="section-title">AI INTELLIGENCE</span>
         <nav class="nav-links">
+          <a routerLink="/pine-script" routerLinkActive="active" class="nav-link pine-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span>Pine Script Studio</span>
+            <span class="badge-mini-pine">v5</span>
+          </a>
+
           <a routerLink="/" fragment="morning-signals" class="nav-link ai-link">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
@@ -108,6 +117,14 @@ import { UserProfile } from '../../models/trade.models';
           <path d="m19 9-5 5-4-4-3 3" />
         </svg>
         <span>TataSil</span>
+      </a>
+
+      <a routerLink="/pine-script" routerLinkActive="active" class="mobile-nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Pine</span>
       </a>
 
       <a *ngIf="user && user.role === 'admin'" routerLink="/admin" routerLinkActive="active" class="mobile-nav-item admin-mob">
@@ -259,6 +276,18 @@ import { UserProfile } from '../../models/trade.models';
 
     .ai-link {
       color: #38bdf8;
+    }
+
+    .badge-mini-pine {
+      font-size: 0.625rem;
+      font-weight: 800;
+      color: #030b1e;
+      background: linear-gradient(135deg, #00f2fe, #4facfe);
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .live-dot {

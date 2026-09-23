@@ -30,10 +30,28 @@ else:
     mysql_url = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
     target_urls = [mysql_url, sqlite_url]
 
+from sqlalchemy.pool import NullPool, QueuePool
+
 for url in target_urls:
     try:
-        connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {"connect_timeout": 3}
-        test_engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+        if "sqlite" in url:
+            connect_args = {"check_same_thread": False, "timeout": 30}
+            test_engine = create_engine(
+                url,
+                connect_args=connect_args,
+                poolclass=NullPool
+            )
+        else:
+            connect_args = {"connect_timeout": 5}
+            test_engine = create_engine(
+                url,
+                connect_args=connect_args,
+                pool_size=30,
+                max_overflow=50,
+                pool_timeout=60,
+                pool_recycle=300,
+                pool_pre_ping=True
+            )
         with test_engine.connect() as conn:
             pass
         engine = test_engine
@@ -45,7 +63,11 @@ for url in target_urls:
 
 if engine is None:
     print(f"[Database] Falling back to local SQLite at {sqlite_url}")
-    engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        sqlite_url,
+        connect_args={"check_same_thread": False, "timeout": 30},
+        poolclass=NullPool
+    )
     db_dialect = "sqlite"
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

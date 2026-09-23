@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 try:
     from backend.database import get_db, Base, engine, SessionLocal
-    from backend.db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB
+    from backend.db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB, PineScriptDB
 except ImportError:
     from database import get_db, Base, engine, SessionLocal
-    from db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB
+    from db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB, PineScriptDB
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "tradeai_ultra_secure_jwt_secret_key_2026_timesfm")
 ALGORITHM = "HS256"

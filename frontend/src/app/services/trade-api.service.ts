@@ -12,7 +12,9 @@ import {
   PortfolioSummary,
   MarketDigest,
   TimesFMAnalysisResponse,
-  MultiAgentAnalysisResponse
+  MultiAgentAnalysisResponse,
+  PineScriptItem,
+  PineScriptPreset
 } from '../models/trade.models';
 
 @Injectable({
@@ -281,6 +283,121 @@ export class TradeApiService {
   updateWishlistItem(symbol: string, req: { target_buy_price?: number; notes?: string }): Observable<WishlistItem> {
     const sym = symbol.toUpperCase();
     return this.http.put<WishlistItem>(`${this.baseUrl}/wishlist/${sym}`, req);
+  }
+
+  // ==========================================
+  // PINE SCRIPT STUDIO METHODS
+  // ==========================================
+
+  getPineScriptPresets(): Observable<PineScriptPreset[]> {
+    return this.http.get<PineScriptPreset[]>(`${this.baseUrl}/pinescript/presets`).pipe(
+      catchError(() => of([
+        {
+          id: 'TIMESFM_NEURAL_BANDS',
+          name: 'TimesFM Neural Bands + ATR Trailing Strategy',
+          description: 'Uses multi-horizon neural quantile bands (10%, 50%, 90%) with dynamic ATR trailing stops.',
+          script_type: 'strategy',
+          timeframe: '15m',
+          pine_version: 'v5',
+          recommended_indicators: ['Google TimesFM Quantile Bands', 'ATR Trailing Stop', 'VWAP Filter'],
+          sample_inputs: { atr_length: 14, atr_multiplier: 2.0, risk_reward_ratio: 2.5, prediction_bars: 7 }
+        },
+        {
+          id: 'PREMARKET_MOMENTUM',
+          name: 'Pre-Market Opening Range Breakout (ORB)',
+          description: 'Calculates the 9:00 - 9:30 AM IST opening range and executes breakout momentum trades with volume expansion.',
+          script_type: 'strategy',
+          timeframe: '5m',
+          pine_version: 'v5',
+          recommended_indicators: ['Opening Range High/Low', 'Volume Surge Multiplier', 'EMA 20 Filter'],
+          sample_inputs: { orb_start_time: '0915-0930', volume_multiplier: 1.5, target_pct: 1.8, stop_loss_pct: 0.9 }
+        },
+        {
+          id: 'SUPER_TREND_VOLATILITY',
+          name: 'Dual SuperTrend + 200 EMA Macro Filter',
+          description: 'Combines fast and slow SuperTrend volatility tracking with a 200 EMA institutional trend bias.',
+          script_type: 'strategy',
+          timeframe: '1h',
+          pine_version: 'v5',
+          recommended_indicators: ['SuperTrend (10, 3)', 'SuperTrend (14, 2)', 'EMA 200', 'RSI 14'],
+          sample_inputs: { st1_period: 10, st1_mult: 3.0, st2_period: 14, st2_mult: 2.0, ema_macro_period: 200 }
+        },
+        {
+          id: 'MULTI_AGENT_FUSION',
+          name: 'Multi-Agent AI Signal Indicator Overlay',
+          description: 'Visual indicator overlay plotting 6 AI agents consensus buy/sell badges, TimesFM forecast bands, and MACD/RSI divergence.',
+          script_type: 'indicator',
+          timeframe: '15m',
+          pine_version: 'v5',
+          recommended_indicators: ['Neural Forecast Bands', 'AI Consensus Badges', 'Bollinger Squeeze Alert'],
+          sample_inputs: { show_bands: true, show_signals: true, rsi_length: 14, bb_length: 20, bb_mult: 2.0 }
+        },
+        {
+          id: 'AI_BREAKOUT_SCALPER',
+          name: 'AI Intraday Breakout Scalper',
+          description: 'High-frequency 5-minute scalper utilizing VWAP mean reversion, dynamic volume filters, and profit target laddering.',
+          script_type: 'strategy',
+          timeframe: '5m',
+          pine_version: 'v5',
+          recommended_indicators: ['Session VWAP', 'EMA 9 / EMA 21 Ribbon', 'Volume Oscillator'],
+          sample_inputs: { ema_fast: 9, ema_slow: 21, profit_target_pct: 1.2, stop_loss_pct: 0.6 }
+        }
+      ]))
+    );
+  }
+
+  generatePineScript(req: {
+    symbol?: string;
+    strategy_preset: string;
+    script_type?: string;
+    timeframe?: string;
+    pine_version?: string;
+    inputs?: Record<string, any>;
+    custom_title?: string;
+    custom_description?: string;
+  }): Observable<PineScriptItem> {
+    return this.http.post<PineScriptItem>(`${this.baseUrl}/pinescript/generate`, req);
+  }
+
+  savePineScript(req: {
+    title: string;
+    symbol: string;
+    script_type: string;
+    strategy_preset: string;
+    timeframe: string;
+    pine_version?: string;
+    code: string;
+    description?: string;
+    inputs?: Record<string, any>;
+    backtest_stats?: Record<string, any>;
+  }): Observable<PineScriptItem> {
+    return this.http.post<PineScriptItem>(`${this.baseUrl}/pinescript/save`, req);
+  }
+
+  getSavedPineScripts(symbol?: string): Observable<PineScriptItem[]> {
+    let url = `${this.baseUrl}/pinescript`;
+    if (symbol) {
+      url += `?symbol=${symbol.toUpperCase()}`;
+    }
+    return this.http.get<PineScriptItem[]>(url).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getPineScriptById(id: string): Observable<PineScriptItem> {
+    return this.http.get<PineScriptItem>(`${this.baseUrl}/pinescript/${id}`);
+  }
+
+  updatePineScript(id: string, req: Partial<PineScriptItem>): Observable<PineScriptItem> {
+    return this.http.put<PineScriptItem>(`${this.baseUrl}/pinescript/${id}`, req);
+  }
+
+  deletePineScript(id: string): Observable<{ status: string; id: string }> {
+    return this.http.delete<{ status: string; id: string }>(`${this.baseUrl}/pinescript/${id}`);
+  }
+
+  downloadPineScriptUrl(id: string): string {
+    return `${this.baseUrl}/pinescript/download/${id}`;
   }
 
   checkWishlist(symbol: string): Observable<{ symbol: string; is_wishlisted: boolean; item?: WishlistItem }> {

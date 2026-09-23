@@ -20,11 +20,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
-    from backend.routers import auth, stocks, forecast, portfolio, admin, wishlist
+    from backend.routers import auth, stocks, forecast, portfolio, admin, wishlist, pine_script
     from backend.auth_utils import init_db_and_seed
     from backend.database import db_dialect
 except ImportError:
-    from routers import auth, stocks, forecast, portfolio, admin, wishlist
+    from routers import auth, stocks, forecast, portfolio, admin, wishlist, pine_script
     from auth_utils import init_db_and_seed
     from database import db_dialect
 
@@ -59,6 +59,7 @@ app.include_router(stocks.router)
 app.include_router(forecast.router)
 app.include_router(portfolio.router)
 app.include_router(wishlist.router)
+app.include_router(pine_script.router)
 
 @app.get("/")
 def root():
