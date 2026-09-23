@@ -82,6 +82,17 @@ def test_user_login_and_protected_access():
     assert admin_res.status_code == 403
     assert "Admin privilege required" in admin_res.json()["detail"]
 
+    # Test Token Refresh
+    refresh_res = client.post("/api/auth/refresh", headers=headers)
+    assert refresh_res.status_code == 200
+    new_token = refresh_res.json()["token"]
+    assert len(new_token) > 20
+
+    # Test Logout
+    logout_res = client.post("/api/auth/logout", headers={"Authorization": f"Bearer {new_token}"})
+    assert logout_res.status_code == 200
+    assert logout_res.json()["status"] == "success"
+
 def test_admin_rbac_and_management():
     # Login as admin
     admin_login = client.post("/api/auth/login", json={

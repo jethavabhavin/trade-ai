@@ -86,10 +86,27 @@ export class AuthService {
     );
   }
 
+  public refreshToken(): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.baseUrl}/refresh`, {}).pipe(
+      tap(res => this.handleAuthSuccess(res)),
+      catchError(err => {
+        this.logout();
+        return throwError(() => err);
+      })
+    );
+  }
+
   public logout(): void {
+    const token = this.getToken();
+    if (token) {
+      this.http.post(`${this.baseUrl}/logout`, {}).pipe(
+        catchError(() => of(null))
+      ).subscribe();
+    }
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
     this.currentUserSubject.next(null);
+    this.openAuthModal('login');
   }
 
   public setCurrentUser(user: UserProfile): void {

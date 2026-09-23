@@ -1,6 +1,6 @@
 import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError } from 'rxjs';
+import { catchError, throwError, switchMap } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
@@ -19,8 +19,31 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401) {
-        // Unauthorized token expired or invalid - prompt user to login
-        authService.openAuthModal('login');
+        // If the failed request was already login/refresh/signup, log out immediately
+        if (req.url.includes('/api/auth/login') || req.url.includes('/api/auth/refresh') || req.url.includes('/api/auth/signup')) {
+          authService.logout();
+          return throwError(() => error);
+        }
+
+        // If we have an existing token, try to refresh it once
+        if (token) {
+          return authService.refreshToken().pipe(
+            switchMap(authRes => {
+              const retryReq = req.clone({
+                setHeaders: {
+                  Authorization: `Bearer ${authRes.token}`
+                }
+              });
+              return next(retryReq);
+            }),
+            catchError(refreshErr => {
+              authService.logout();
+              return throwError(() => refreshErr);
+            })
+          );
+        } else {
+          authService.logout();
+        }
       }
       return throwError(() => error);
     })

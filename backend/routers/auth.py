@@ -195,3 +195,29 @@ def toggle_watchlist(
     db.refresh(current_user)
 
     return {"status": status_msg, "symbol": symbol_upper, "watchlist": current_watchlist}
+
+@router.post("/refresh", response_model=AuthResponse)
+def refresh_token(current_user: UserDB = Depends(get_current_user)):
+    """
+    Refreshes the active JWT access token for the authenticated user.
+    """
+    token = create_access_token(data={"sub": current_user.id, "role": current_user.role, "email": current_user.email})
+    return AuthResponse(
+        token=token,
+        user=UserProfile(**current_user.to_profile_dict())
+    )
+
+@router.post("/logout")
+def logout(current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Server-side audit registration of user logout.
+    """
+    log_audit_event(
+        db=db,
+        action="LOGOUT",
+        user_id=current_user.id,
+        username=current_user.username,
+        details="User logged out"
+    )
+    return {"status": "success", "message": "Successfully logged out"}
+
