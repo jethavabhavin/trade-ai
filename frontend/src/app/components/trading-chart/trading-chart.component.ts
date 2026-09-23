@@ -271,22 +271,33 @@ import { PricePoint, ForecastPoint } from '../../models/trade.models';
             </g>
           </g>
 
-          <!-- Hover Crosshair Indicator -->
-          <g *ngIf="hoverX >= 0">
+          <!-- Hover Crosshair & Precise Line Marker -->
+          <g *ngIf="hoverPointCoord">
             <line
-              [attr.x1]="hoverX"
+              [attr.x1]="hoverPointCoord.x"
               y1="0"
-              [attr.x2]="hoverX"
+              [attr.x2]="hoverPointCoord.x"
               [attr.y2]="chartHeight"
-              stroke="rgba(255, 255, 255, 0.4)"
+              stroke="rgba(255, 255, 255, 0.45)"
               stroke-dasharray="3,3"
+              stroke-width="1.2"
             />
+            <!-- Outer Pulsing Glow -->
             <circle
-              *ngIf="hoverPointCoord"
               [attr.cx]="hoverPointCoord.x"
               [attr.cy]="hoverPointCoord.y"
-              r="6"
-              [attr.fill]="isBullish ? '#10b981' : '#f43f5e'"
+              r="10"
+              fill="none"
+              [attr.stroke]="hoveredForecast ? '#38bdf8' : (isBullish ? '#10b981' : '#f43f5e')"
+              stroke-width="1.5"
+              opacity="0.5"
+            />
+            <!-- Main Circle Node -->
+            <circle
+              [attr.cx]="hoverPointCoord.x"
+              [attr.cy]="hoverPointCoord.y"
+              r="5.5"
+              [attr.fill]="hoveredForecast ? '#38bdf8' : (isBullish ? '#10b981' : '#f43f5e')"
               stroke="#ffffff"
               stroke-width="2"
             />
@@ -599,6 +610,7 @@ export class TradingChartComponent implements OnInit, OnChanges {
   svgCandles: { x: number; width: number; highY: number; lowY: number; bodyY: number; bodyHeight: number; isUp: boolean }[] = [];
   svgForecastPoints: { x: number; y: number; price: number; dayName: string }[] = [];
 
+  renderedHistoricalCoords: { x: number; y: number }[] = [];
   hoverX: number = -1;
   hoveredPoint: PricePoint | null = null;
   hoveredForecast: ForecastPoint | null = null;
@@ -781,6 +793,9 @@ export class TradingChartComponent implements OnInit, OnChanges {
       });
     });
 
+    // Save exact rendered coordinates for precision hover locking
+    this.renderedHistoricalCoords = coords;
+
     // Build Line Path & Area Polygon
     this.linePath = coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
     this.areaPolygon = `0,${this.chartHeight} ` + this.linePath + ` ${coords[coords.length - 1].x.toFixed(1)},${this.chartHeight}`;
@@ -839,25 +854,28 @@ export class TradingChartComponent implements OnInit, OnChanges {
     const histFraction = includeForecast ? 0.72 : 1.0;
     const histWidth = this.width * histFraction;
 
-    if (this.hoverX <= histWidth && this.activePoints.length > 0) {
+    if (this.hoverX <= histWidth && this.activePoints.length > 0 && this.renderedHistoricalCoords.length > 0) {
       const idx = Math.round((this.hoverX / histWidth) * (this.activePoints.length - 1));
       const clampedIdx = Math.max(0, Math.min(this.activePoints.length - 1, idx));
       this.hoveredPoint = this.activePoints[clampedIdx];
       this.hoveredForecast = null;
-
-      const stepX = histWidth / Math.max(1, this.activePoints.length - 1);
-      const minP = Math.min(...this.activePoints.map(p => p.low));
-      const maxP = Math.max(...this.activePoints.map(p => p.high));
-      const y = this.chartHeight - ((this.hoveredPoint.close - minP) / (maxP - minP || 1) * (this.chartHeight - 30)) - 10;
-      this.hoverPointCoord = { x: clampedIdx * stepX, y };
-    } else if (includeForecast) {
+      // Precision coordinate lock directly on the rendered line curve
+      this.hoverPointCoord = this.renderedHistoricalCoords[clampedIdx];
+    } else if (includeForecast && this.svgForecastPoints.length > 0) {
       const fWidth = this.width - histWidth;
       const fRelX = this.hoverX - histWidth;
       const fIdx = Math.floor((fRelX / fWidth) * this.forecastPoints.length);
       const clampedFIdx = Math.max(0, Math.min(this.forecastPoints.length - 1, fIdx));
       this.hoveredForecast = this.forecastPoints[clampedFIdx];
       this.hoveredPoint = null;
-      this.hoverPointCoord = null;
+      if (this.svgForecastPoints[clampedFIdx]) {
+        this.hoverPointCoord = {
+          x: this.svgForecastPoints[clampedFIdx].x,
+          y: this.svgForecastPoints[clampedFIdx].y
+        };
+      } else {
+        this.hoverPointCoord = null;
+      }
     }
   }
 
