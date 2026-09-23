@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 try:
     from backend.database import get_db, Base, engine, SessionLocal
-    from backend.db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB
+    from backend.db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB
 except ImportError:
     from database import get_db, Base, engine, SessionLocal
-    from db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB
+    from db_models import UserDB, AuditLogDB, MarketSymbolDB, PredictionDB, TradeDataDB, WishlistDB
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "tradeai_ultra_secure_jwt_secret_key_2026_timesfm")
 ALGORITHM = "HS256"
@@ -180,6 +180,44 @@ def init_db_and_seed():
         if sym_count == 0:
             print("[Database Seed] Syncing market symbols from API into database...")
             LiveMarketService.sync_symbols_to_db()
+
+        # Check and seed default wishlist items for demo user
+        wl_count = db.query(WishlistDB).count()
+        if wl_count == 0:
+            initial_wishlists = [
+                WishlistDB(
+                    id="wl_usr_demo_01_tatasil",
+                    user_id="usr_demo_01",
+                    symbol="TATASIL",
+                    name="Tata Steel Limited",
+                    category="EQUITY",
+                    target_buy_price=145.0,
+                    notes="Core commodity holding. Watch for rally above 155.",
+                    added_at=datetime.utcnow()
+                ),
+                WishlistDB(
+                    id="wl_usr_demo_01_nifty50",
+                    user_id="usr_demo_01",
+                    symbol="NIFTY50",
+                    name="NIFTY 50 Index",
+                    category="INDEX",
+                    target_buy_price=None,
+                    notes="Benchmark index tracker.",
+                    added_at=datetime.utcnow()
+                ),
+                WishlistDB(
+                    id="wl_usr_demo_01_reliance",
+                    user_id="usr_demo_01",
+                    symbol="RELIANCE",
+                    name="Reliance Industries Ltd",
+                    category="EQUITY",
+                    target_buy_price=2850.0,
+                    notes="Energy & retail momentum.",
+                    added_at=datetime.utcnow()
+                )
+            ]
+            db.add_all(initial_wishlists)
+            print("[Database Seed] Seeded default user wishlist records.")
 
         db.commit()
     except Exception as e:

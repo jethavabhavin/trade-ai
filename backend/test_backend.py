@@ -247,5 +247,63 @@ def test_trade_data_db_caching_and_persistence():
     assert len(loaded.forecast_1d) > 0
     assert loaded.morning_signal is not None
 
+def test_wishlist_db_crud_and_endpoints():
+    """Verify that wishlist items are managed properly with DB schema and REST endpoints."""
+    # Login as trader
+    login_res = client.post("/api/auth/login", json={
+        "email": "trader@tradeai.app",
+        "password": "TraderPassword@123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Get initial wishlist
+    wl_res = client.get("/api/wishlist", headers=headers)
+    assert wl_res.status_code == 200
+    items = wl_res.json()
+    assert len(items) >= 2
+    symbols = [i["symbol"] for i in items]
+    assert "TATASIL" in symbols
+
+    # 2. Add new item to wishlist with target buy price and notes
+    add_res = client.post("/api/wishlist", json={
+        "symbol": "TCS",
+        "name": "Tata Consultancy Services",
+        "category": "EQUITY",
+        "target_buy_price": 4100.00,
+        "notes": "Key IT sector heavy-weight."
+    }, headers=headers)
+    assert add_res.status_code == 200
+    added_item = add_res.json()
+    assert added_item["symbol"] == "TCS"
+    assert added_item["target_buy_price"] == 4100.00
+    assert added_item["notes"] == "Key IT sector heavy-weight."
+
+    # 3. Check symbol status
+    check_res = client.get("/api/wishlist/check/TCS", headers=headers)
+    assert check_res.status_code == 200
+    assert check_res.json()["is_wishlisted"] is True
+
+    # 4. Update wishlist item
+    update_res = client.put("/api/wishlist/TCS", json={
+        "target_buy_price": 4050.00,
+        "notes": "Updated buy target on dip."
+    }, headers=headers)
+    assert update_res.status_code == 200
+    assert update_res.json()["target_buy_price"] == 4050.00
+
+    # 5. Toggle wishlist (should remove TCS)
+    toggle_res = client.post("/api/wishlist/toggle?symbol=TCS", headers=headers)
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["is_wishlisted"] is False
+    assert toggle_res.json()["status"] == "removed"
+
+    # 6. Delete explicit item
+    del_res = client.delete("/api/wishlist/TATASIL", headers=headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "removed"
+
+
 
 

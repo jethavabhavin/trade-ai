@@ -194,5 +194,35 @@ CREATE TABLE IF NOT EXISTS `trade_data` (
     INDEX `idx_trade_data_exchange` (`exchange`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- 8. Table structure for `wishlists` (User Watchlisted / Wishlisted Assets)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `wishlists` (
+    `id` VARCHAR(64) NOT NULL,
+    `user_id` VARCHAR(36) NOT NULL,
+    `symbol` VARCHAR(32) NOT NULL,
+    `name` VARCHAR(128) NULL,
+    `category` VARCHAR(32) NOT NULL DEFAULT 'EQUITY',
+    `target_buy_price` DOUBLE NULL DEFAULT NULL,
+    `notes` TEXT NULL,
+    `added_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_wishlist_user_symbol` (`user_id`, `symbol`),
+    INDEX `idx_wishlist_user_id` (`user_id`),
+    INDEX `idx_wishlist_symbol` (`symbol`),
+    CONSTRAINT `fk_wishlist_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seed Default Demo Wishlists
+INSERT INTO `wishlists` (`id`, `user_id`, `symbol`, `name`, `category`, `target_buy_price`, `notes`, `added_at`)
+VALUES 
+('wl_usr_demo_01_tatasil', 'usr_demo_01', 'TATASIL', 'Tata Steel Limited', 'EQUITY', 145.00, 'Core commodity holding. Watch for rally above 155.', CURRENT_TIMESTAMP),
+('wl_usr_demo_01_nifty50', 'usr_demo_01', 'NIFTY50', 'NIFTY 50 Index', 'INDEX', NULL, 'Benchmark index tracker.', CURRENT_TIMESTAMP),
+('wl_usr_demo_01_reliance', 'usr_demo_01', 'RELIANCE', 'Reliance Industries Ltd', 'EQUITY', 2850.00, 'Energy & retail momentum.', CURRENT_TIMESTAMP)
+ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP;
+
+
 
 

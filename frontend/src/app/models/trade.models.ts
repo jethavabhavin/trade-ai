@@ -83,6 +83,24 @@ export interface UserProfile {
   watchlist: string[];
 }
 
+export interface WishlistItem {
+  id: string;
+  user_id: string;
+  symbol: string;
+  name: string;
+  category: string;
+  target_buy_price?: number;
+  notes?: string;
+  added_at: string;
+  current_price?: number;
+  change_amount?: number;
+  change_pct?: number;
+  currency?: string;
+  morning_signal_action?: string;
+  morning_signal_confidence?: number;
+  morning_signal_target?: number;
+}
+
 export interface AuthResponse {
   token: string;
   user: UserProfile;

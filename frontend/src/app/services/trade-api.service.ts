@@ -8,6 +8,7 @@ import {
   ForecastPoint,
   MorningSignal,
   UserProfile,
+  WishlistItem,
   PortfolioSummary,
   MarketDigest,
   TimesFMAnalysisResponse,
@@ -230,7 +231,69 @@ export class TradeApiService {
     };
   }
 
-  // User & Watchlist
+  // User, Wishlist & Watchlist
+  getWishlist(): Observable<WishlistItem[]> {
+    return this.http.get<WishlistItem[]>(`${this.baseUrl}/wishlist`).pipe(
+      catchError(() => {
+        const user = this.currentUserSubject.value;
+        const mockItems: WishlistItem[] = (user.watchlist || []).map(sym => ({
+          id: `wl_${user.id}_${sym.toLowerCase()}`,
+          user_id: user.id,
+          symbol: sym,
+          name: sym,
+          category: 'EQUITY',
+          added_at: new Date().toISOString()
+        }));
+        return of(mockItems);
+      })
+    );
+  }
+
+  addToWishlist(req: { symbol: string; name?: string; category?: string; target_buy_price?: number; notes?: string }): Observable<WishlistItem> {
+    const sym = req.symbol.toUpperCase();
+    const user = this.currentUserSubject.value;
+    if (!user.watchlist.includes(sym)) {
+      this.currentUserSubject.next({ ...user, watchlist: [...user.watchlist, sym] });
+    }
+    return this.http.post<WishlistItem>(`${this.baseUrl}/wishlist`, req).pipe(
+      catchError(() => of({
+        id: `wl_${user.id}_${sym.toLowerCase()}`,
+        user_id: user.id,
+        symbol: sym,
+        name: req.name || sym,
+        category: req.category || 'EQUITY',
+        target_buy_price: req.target_buy_price,
+        notes: req.notes || '',
+        added_at: new Date().toISOString()
+      }))
+    );
+  }
+
+  removeFromWishlist(symbol: string): Observable<{ status: string; symbol: string }> {
+    const sym = symbol.toUpperCase();
+    const user = this.currentUserSubject.value;
+    this.currentUserSubject.next({ ...user, watchlist: user.watchlist.filter(s => s !== sym) });
+    return this.http.delete<{ status: string; symbol: string }>(`${this.baseUrl}/wishlist/${sym}`).pipe(
+      catchError(() => of({ status: 'removed', symbol: sym }))
+    );
+  }
+
+  updateWishlistItem(symbol: string, req: { target_buy_price?: number; notes?: string }): Observable<WishlistItem> {
+    const sym = symbol.toUpperCase();
+    return this.http.put<WishlistItem>(`${this.baseUrl}/wishlist/${sym}`, req);
+  }
+
+  checkWishlist(symbol: string): Observable<{ symbol: string; is_wishlisted: boolean; item?: WishlistItem }> {
+    const sym = symbol.toUpperCase();
+    return this.http.get<{ symbol: string; is_wishlisted: boolean; item?: WishlistItem }>(`${this.baseUrl}/wishlist/check/${sym}`).pipe(
+      catchError(() => {
+        const user = this.currentUserSubject.value;
+        const isWl = user.watchlist.includes(sym);
+        return of({ symbol: sym, is_wishlisted: isWl });
+      })
+    );
+  }
+
   toggleWatchlist(symbol: string): Observable<{ status: string; watchlist: string[] }> {
     const user = this.currentUserSubject.value;
     const sym = symbol.toUpperCase();
@@ -248,7 +311,7 @@ export class TradeApiService {
     this.currentUserSubject.next(updatedUser);
 
     return this.http.post<{ status: string; watchlist: string[] }>(
-      `${this.baseUrl}/auth/watchlist/toggle?symbol=${sym}`, {}
+      `${this.baseUrl}/wishlist/toggle?symbol=${sym}`, {}
     ).pipe(
       catchError(() => of({ status, watchlist: newWatchlist }))
     );
