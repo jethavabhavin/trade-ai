@@ -1,26 +1,29 @@
-"""
-TradeAI Multi-Agent Stock Prediction System
-Combines Google TimesFM 3.0 foundation numeric forecasting with Google Gemini reasoning.
-"""
+from backend.agents.base_agent import BaseAgent, AgentResult
+from backend.agents.market_data_agent import MarketDataAgent
+from backend.agents.quant_forecaster_agent import QuantForecasterAgent
+from backend.agents.sentiment_agent import SentimentAgent
+from backend.agents.reasoning_agent import ReasoningAgent
+from backend.agents.fusion_risk_agent import FusionRiskAgent
+from backend.agents.output_agent import OutputAgent
+from backend.agents.orchestrator_agent import OrchestratorAgent, orchestrator
+from backend.agents.forecast_engine import ForecastEngine
+from backend.agents.timesfm_service import TimesFMService, timesfm_service
 
-from .base_agent import BaseAgent, AgentResult
-from .market_data_agent import MarketDataAgent
-from .sentiment_agent import SentimentAgent
-from .quant_forecaster_agent import QuantForecasterAgent
-from .reasoning_agent import ReasoningAgent
-from .fusion_risk_agent import FusionRiskAgent
-from .output_agent import OutputAgent
-from .orchestrator_agent import OrchestratorAgent, orchestrator
+multi_agent_orchestrator = orchestrator
 
 __all__ = [
     "BaseAgent",
     "AgentResult",
     "MarketDataAgent",
-    "SentimentAgent",
     "QuantForecasterAgent",
+    "SentimentAgent",
     "ReasoningAgent",
     "FusionRiskAgent",
     "OutputAgent",
     "OrchestratorAgent",
-    "orchestrator"
+    "orchestrator",
+    "multi_agent_orchestrator",
+    "ForecastEngine",
+    "TimesFMService",
+    "timesfm_service"
 ]

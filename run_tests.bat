@@ -5,7 +5,7 @@ echo =========================================================
 echo.
 
 echo [1/2] Running Backend Pytest Suite (Auth, RBAC, Forecast, Multi-Agent)...
-call .venv\Scripts\python.exe -m pytest backend\test_backend.py -v
+call .venv\Scripts\python.exe -m pytest backend\tests\test_backend.py -v
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Backend tests failed!
     exit /b %ERRORLEVEL%

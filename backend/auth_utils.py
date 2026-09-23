@@ -20,6 +20,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")) # 24 Hours
 
 security = HTTPBearer(auto_error=True)
+security_optional = HTTPBearer(auto_error=False)
 
 def hash_password(password: str) -> str:
     """Hashes a password using bcrypt."""
@@ -81,6 +82,28 @@ def get_current_user(
         )
     
     return user
+
+def get_optional_current_user(
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db: Session = Depends(get_db)
+) -> Optional[UserDB]:
+    """
+    FastAPI dependency that returns the authenticated UserDB if a valid Bearer token is provided,
+    or None if the request is unauthenticated, allowing public read endpoints to work seamlessly.
+    """
+    if not auth or not auth.credentials:
+        return None
+    try:
+        payload = decode_access_token(auth.credentials)
+        if not payload:
+            return None
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        user = db.query(UserDB).filter(UserDB.id == user_id).first()
+        return user if (user and user.is_active) else None
+    except Exception:
+        return None
 
 def get_current_admin_user(
     current_user: UserDB = Depends(get_current_user)

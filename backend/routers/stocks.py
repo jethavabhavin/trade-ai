@@ -4,22 +4,22 @@ try:
     from backend.models import StockSummary, StockDetail, PricePoint
     from backend.data_store import db
     from backend.db_models import UserDB
-    from backend.auth_utils import get_current_user
+    from backend.auth_utils import get_current_user, get_optional_current_user
 except ImportError:
     from models import StockSummary, StockDetail, PricePoint
     from data_store import db
     from db_models import UserDB
-    from auth_utils import get_current_user
+    from auth_utils import get_current_user, get_optional_current_user
 
 router = APIRouter(prefix="/api/stocks", tags=["Stocks"])
 
 @router.get("", response_model=List[StockSummary])
 def get_stocks(
     category: Optional[str] = None,
-    current_user: UserDB = Depends(get_current_user)
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
 ):
     """
-    Returns market asset summaries (ETFs, Stocks, Indices). Requires valid JWT auth.
+    Returns market asset summaries (ETFs, Stocks, Indices).
     """
     stocks = db.get_all_summaries()
     if category and category.upper() != "ALL":
@@ -28,7 +28,7 @@ def get_stocks(
 
 @router.get("/symbols/list")
 def get_monitored_symbols_list(
-    current_user: UserDB = Depends(get_current_user)
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
 ):
     """
     Returns list of all active market symbols registered and monitored in the database.
@@ -65,20 +65,20 @@ def sync_market_symbols_from_api(
 @router.get("/search", response_model=List[StockSummary])
 def search_stocks(
     q: str = Query(..., min_length=1),
-    current_user: UserDB = Depends(get_current_user)
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
 ):
     """
-    Search stocks and ETFs by ticker or company name. Requires valid JWT auth.
+    Search stocks and ETFs by ticker or company name.
     """
     return db.search_stocks(q)
 
 @router.get("/{symbol}", response_model=StockDetail)
 def get_stock_detail(
     symbol: str,
-    current_user: UserDB = Depends(get_current_user)
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
 ):
     """
-    Returns detailed candlestick, metrics, and forecast data for an asset. Requires valid JWT auth.
+    Returns detailed candlestick, metrics, and forecast data for an asset.
     """
     stock = db.get_stock_detail(symbol)
     if not stock:
@@ -89,10 +89,10 @@ def get_stock_detail(
 def get_timeframe_data(
     symbol: str, 
     timeframe: str,
-    current_user: UserDB = Depends(get_current_user)
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
 ):
     """
-    Returns historical price points for 1D, 1W, 1M, 1Y, 5Y. Requires valid JWT auth.
+    Returns historical price points for 1D, 1W, 1M, 1Y, 5Y.
     """
     stock = db.get_stock_detail(symbol)
     if not stock:

@@ -2,11 +2,16 @@ import os
 import sys
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure backend directory and project root are in sys.path
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+project_root = os.path.abspath(os.path.join(backend_dir, ".."))
+for path in [backend_dir, project_root]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from fastapi.testclient import TestClient
-from main import app
-from auth_utils import init_db_and_seed
+from backend.main import app
+from backend.auth_utils import init_db_and_seed
 
 # Initialize DB and seed
 init_db_and_seed()
@@ -175,7 +180,7 @@ def test_multi_agent_pipeline():
     assert len(data["timesfm_forecast"]["forecast_points"]) == 7
     assert "gemini_reasoning" in data
     assert "agent_execution_traces" in data
-    assert len(data["agent_execution_traces"]) == 6 # All 6 agents executed
+    assert len(data["agent_execution_traces"]) == 6
 
 def test_market_symbols_db_and_sync():
     """Verify that market symbols are stored in DB, fetched dynamically, and can be synced."""
@@ -233,9 +238,9 @@ def test_predictions_db_storage_and_query():
 
 def test_trade_data_db_caching_and_persistence():
     """Verify that trade data is persisted to DB upon fetch and reused directly from system."""
-    from live_market_service import LiveMarketService
-    from database import SessionLocal
-    from db_models import TradeDataDB
+    from backend.live_market_service import LiveMarketService
+    from backend.database import SessionLocal
+    from backend.models.trade_model import TradeDataDB
 
     # 1. Fetch stock detail (fetches and writes to DB)
     detail = LiveMarketService.fetch_live_stock_detail("RELIANCE")
@@ -410,8 +415,3 @@ def test_pine_script_engine_and_endpoints():
     del_res = client.delete(f"/api/pinescript/{script_id}", headers=headers)
     assert del_res.status_code == 200
     assert del_res.json()["status"] == "deleted"
-
-
-
-
-

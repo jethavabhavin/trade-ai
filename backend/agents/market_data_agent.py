@@ -7,10 +7,8 @@ import numpy as np
 
 try:
     from backend.agents.base_agent import BaseAgent, AgentResult
-    from backend.data_store import db
 except ImportError:
     from agents.base_agent import BaseAgent, AgentResult
-    from data_store import db
 
 class MarketDataAgent(BaseAgent):
     """
