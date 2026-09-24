@@ -6,6 +6,8 @@ from backend.schemas import (
     PricePoint,
     ForecastPoint,
     MorningSignal,
+    ComparisonBarPoint,
+    PredictionComparisonResponse,
     StockSummary,
     StockDetail,
     UserProfile,

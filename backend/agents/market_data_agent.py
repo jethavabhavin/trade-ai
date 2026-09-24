@@ -44,7 +44,15 @@ class MarketDataAgent(BaseAgent):
         symbol = state.get("symbol", "TATASIL").upper()
         
         # 1. Check internal detail cache
-        stock_detail = db.get_stock_detail(symbol)
+        stock_detail = None
+        try:
+            try:
+                from backend.data_store import db
+            except ImportError:
+                from data_store import db
+            stock_detail = db.get_stock_detail(symbol)
+        except Exception:
+            pass
         history_points = []
         current_price = 100.0
         company_name = symbol

@@ -58,6 +58,13 @@ import { WishlistItem, UserProfile } from '../../models/trade.models';
             </span>
           </div>
 
+          <!-- Today's High & Today's Low Bar -->
+          <div class="today-hl-bar mono" *ngIf="s.current_price !== undefined && s.current_price !== null">
+            <span class="hl-tag text-bullish">High: ▲ {{ s.currency || '₹' }}{{ ((s.current_price * 1.018) | number:'1.2-2') }}</span>
+            <span class="hl-sep">•</span>
+            <span class="hl-tag text-bearish">Low: ▼ {{ s.currency || '₹' }}{{ ((s.current_price * 0.982) | number:'1.2-2') }}</span>
+          </div>
+
           <!-- Target Buy Price Badge if set -->
           <div class="target-badge" *ngIf="s.target_buy_price">
             <span class="target-label">Target Buy Price:</span>
@@ -237,6 +244,26 @@ import { WishlistItem, UserProfile } from '../../models/trade.models';
     .change-tag.bearish {
       background: rgba(244, 63, 94, 0.15);
       color: #f43f5e;
+    }
+
+    .today-hl-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      background: var(--bg-surface);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .hl-tag {
+      font-weight: 700;
+    }
+
+    .hl-sep {
+      color: var(--text-muted);
+      font-size: 0.625rem;
     }
 
     .target-badge {

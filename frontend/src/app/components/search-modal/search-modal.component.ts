@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -342,7 +342,8 @@ export class SearchModalComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: TradeApiService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -354,6 +355,7 @@ export class SearchModalComponent implements OnInit, OnDestroy {
           // Immediately trigger initial load when modal opens
           this.searchSubject.next(this.searchQuery);
         }
+        this.cdr.markForCheck();
       });
 
     // RxJS Debounce Pipeline (300ms debounce + distinctUntilChanged + switchMap)
@@ -363,6 +365,7 @@ export class SearchModalComponent implements OnInit, OnDestroy {
         distinctUntilChanged(),
         tap(() => {
           this.isSearching = true;
+          this.cdr.markForCheck();
         }),
         switchMap(query => {
           const trimmed = (query || '').trim();
@@ -381,9 +384,11 @@ export class SearchModalComponent implements OnInit, OnDestroy {
         next: res => {
           this.results = res || [];
           this.isSearching = false;
+          this.cdr.markForCheck();
         },
         error: () => {
           this.isSearching = false;
+          this.cdr.markForCheck();
         }
       });
   }

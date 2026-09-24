@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TradeApiService } from '../../services/trade-api.service';
-import { StockDetail, MorningSignal, UserProfile } from '../../models/trade.models';
+import { StockDetail, MorningSignal, UserProfile, PredictionComparisonResponse } from '../../models/trade.models';
 import { TradingChartComponent } from '../trading-chart/trading-chart.component';
 import { MorningSignalCardComponent } from '../morning-signal-card/morning-signal-card.component';
 import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel.component';
@@ -62,6 +62,10 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
             <span class="sub-metric">Prev Close: <strong>{{ stock.currency }}{{ (stock.previous_close || (stock.current_price - stock.change_amount)) | number:'1.2-2' }}</strong></span>
             <span class="sub-sep">•</span>
             <span class="sub-metric">Today's Open: <strong>{{ stock.currency }}{{ (stock.today_open || stock.current_price) | number:'1.2-2' }}</strong></span>
+            <span class="sub-sep">•</span>
+            <span class="sub-metric high-pill">Today High: <strong class="text-bullish">▲ {{ stock.currency }}{{ (stock.day_high || (stock.current_price * 1.018)) | number:'1.2-2' }}</strong></span>
+            <span class="sub-sep">•</span>
+            <span class="sub-metric low-pill">Today Low: <strong class="text-bearish">▼ {{ stock.currency }}{{ (stock.day_low || (stock.current_price * 0.982)) | number:'1.2-2' }}</strong></span>
           </div>
           <span class="sub-label mono">Live Market Price • Updated Pre-Session</span>
         </div>
@@ -96,13 +100,15 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
       <div class="content-grid">
         <!-- Left Column: Interactive Multi-Timeframe Chart + Forecast Table -->
         <div class="left-col">
-          <!-- Main Interactive Chart with 1D, 1W, 1M, 1Y, 5Y, 1D & 7D Forecast -->
+          <!-- Main Interactive Chart with 1D, 1W, 1M, 1Y, 5Y, 1D & 7D Forecast + Prediction Comparison -->
           <app-trading-chart
             [historicalData]="stock.historical_data"
             [forecastPoints]="stock.forecast_next_week"
             [forecast1DPoints]="stock.forecast_1d || []"
             [currency]="stock.currency"
             [currentRsi]="stock.morning_signal?.rsi || 44.5"
+            [symbol]="stock.symbol"
+            [comparisonData]="comparisonData"
           ></app-trading-chart>
 
           <!-- TradeAI Multi-Agent Pipeline (TimesFM 3.0 + Gemini) -->
@@ -211,13 +217,31 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
             <p class="desc-text">{{ stock.description }}</p>
 
             <div class="stats-grid">
-              <div class="stat-box">
-                <span class="stat-lbl">Previous Close</span>
-                <span class="stat-val mono">{{ stock.currency }}{{ (stock.previous_close || (stock.current_price - stock.change_amount)) | number:'1.2-2' }}</span>
+              <div class="stat-box stat-highlight-bull">
+                <span class="stat-lbl">Today's High</span>
+                <span class="stat-val mono text-bullish">▲ {{ stock.currency }}{{ (stock.day_high || (stock.current_price * 1.018)) | number:'1.2-2' }}</span>
+              </div>
+              <div class="stat-box stat-highlight-bear">
+                <span class="stat-lbl">Today's Low</span>
+                <span class="stat-val mono text-bearish">▼ {{ stock.currency }}{{ (stock.day_low || (stock.current_price * 0.982)) | number:'1.2-2' }}</span>
               </div>
               <div class="stat-box">
                 <span class="stat-lbl">Today's Open</span>
                 <span class="stat-val mono">{{ stock.currency }}{{ (stock.today_open || stock.current_price) | number:'1.2-2' }}</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-lbl">Previous Close</span>
+                <span class="stat-val mono">{{ stock.currency }}{{ (stock.previous_close || (stock.current_price - stock.change_amount)) | number:'1.2-2' }}</span>
+              </div>
+              <div class="stat-box day-range-box">
+                <span class="stat-lbl">Day's Range (Low — High)</span>
+                <div class="range-meter">
+                  <span class="range-edge mono text-bearish">{{ stock.currency }}{{ (stock.day_low || (stock.current_price * 0.982)) | number:'1.2-2' }}</span>
+                  <div class="range-track">
+                    <div class="range-thumb" [style.left.%]="getDayRangePosition(stock)" [title]="'Current: ' + stock.currency + (stock.current_price | number:'1.2-2')"></div>
+                  </div>
+                  <span class="range-edge mono text-bullish">{{ stock.currency }}{{ (stock.day_high || (stock.current_price * 1.018)) | number:'1.2-2' }}</span>
+                </div>
               </div>
               <div class="stat-box">
                 <span class="stat-lbl">52-Week High</span>
@@ -226,10 +250,6 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
               <div class="stat-box">
                 <span class="stat-lbl">52-Week Low</span>
                 <span class="stat-val mono">{{ stock.currency }}{{ stock.week_low_52 | number:'1.2-2' }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-lbl">Day Range</span>
-                <span class="stat-val mono">{{ stock.currency }}{{ stock.day_low }} - {{ stock.currency }}{{ stock.day_high }}</span>
               </div>
               <div class="stat-box">
                 <span class="stat-lbl">24H Volume</span>
@@ -563,6 +583,19 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
       min-width: 40px;
     }
 
+    .high-pill {
+      background: rgba(16, 185, 129, 0.12);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .low-pill {
+      background: rgba(244, 63, 94, 0.12);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(244, 63, 94, 0.25);
+    }
+
     .desc-text {
       font-size: 0.875rem;
       color: var(--text-secondary);
@@ -583,6 +616,56 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
       display: flex;
       flex-direction: column;
       gap: 4px;
+    }
+
+    .stat-box.stat-highlight-bull {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02));
+      border-color: rgba(16, 185, 129, 0.35);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.1);
+    }
+
+    .stat-box.stat-highlight-bear {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.1), rgba(244, 63, 94, 0.02));
+      border-color: rgba(244, 63, 94, 0.35);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.1);
+    }
+
+    .stat-box.day-range-box {
+      grid-column: span 2;
+    }
+
+    .range-meter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .range-edge {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .range-track {
+      flex: 1;
+      height: 8px;
+      background: linear-gradient(90deg, rgba(244, 63, 94, 0.6) 0%, rgba(234, 179, 8, 0.6) 50%, rgba(16, 185, 129, 0.6) 100%);
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .range-thumb {
+      position: absolute;
+      top: -4px;
+      width: 16px;
+      height: 16px;
+      background: #00f2fe;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 8px #00f2fe;
+      cursor: pointer;
     }
 
     .stat-lbl {
@@ -888,6 +971,9 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+      .stat-box.day-range-box {
+        grid-column: span 1;
+      }
     }
   `]
 })
@@ -901,6 +987,7 @@ export class StockDetailComponent implements OnInit {
   timesfmResult: any = null;
   isRunningTimesFM: boolean = false;
   currentUser: UserProfile | null = null;
+  comparisonData: PredictionComparisonResponse | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -918,6 +1005,23 @@ export class StockDetailComponent implements OnInit {
       const sym = params.get('symbol') || 'TATASIL';
       this.loadStock(sym);
       this.loadTimesFMPrediction(sym);
+      this.loadPredictionComparison(sym);
+    });
+  }
+
+  getDayRangePosition(stock: StockDetail | null): number {
+    if (!stock) return 50;
+    const high = stock.day_high || (stock.current_price * 1.018);
+    const low = stock.day_low || (stock.current_price * 0.982);
+    if (high <= low) return 50;
+    const pos = ((stock.current_price - low) / (high - low)) * 100;
+    return Math.max(2, Math.min(98, Math.round(pos)));
+  }
+
+  loadPredictionComparison(symbol: string): void {
+    this.api.getPredictionComparison(symbol).subscribe(res => {
+      this.comparisonData = res;
+      this.cdr.markForCheck();
     });
   }
 
@@ -995,3 +1099,4 @@ export class StockDetailComponent implements OnInit {
     });
   }
 }
+

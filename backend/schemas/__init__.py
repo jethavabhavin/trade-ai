@@ -2,7 +2,7 @@ from backend.schemas.auth_schemas import (
     UserProfile, UserLoginRequest, UserSignupRequest, AuthResponse
 )
 from backend.schemas.forecast_schemas import (
-    ForecastPoint, MorningSignal
+    ForecastPoint, MorningSignal, ComparisonBarPoint, PredictionComparisonResponse
 )
 from backend.schemas.market_schemas import (
     PricePoint, StockSummary, StockDetail, PortfolioPosition, PortfolioSummary

@@ -26,6 +26,8 @@ class StockSummary(BaseModel):
     morning_signal: Optional[MorningSignal] = None
     previous_close: Optional[float] = None
     today_open: Optional[float] = None
+    day_high: Optional[float] = None
+    day_low: Optional[float] = None
 
 class StockDetail(StockSummary):
     description: str

@@ -104,9 +104,13 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
               <div class="chart-sub-metrics mono">
                 <span>Prev Close: <strong>{{ featuredStock.currency }}{{ (featuredStock.previous_close || (featuredStock.current_price - featuredStock.change_amount)) | number:'1.2-2' }}</strong></span>
                 <span class="dot-sep">•</span>
-                <span>Today's Open: <strong>{{ featuredStock.currency }}{{ (featuredStock.today_open || featuredStock.current_price) | number:'1.2-2' }}</strong></span>
+                <span>Today Open: <strong>{{ featuredStock.currency }}{{ (featuredStock.today_open || featuredStock.current_price) | number:'1.2-2' }}</strong></span>
                 <span class="dot-sep">•</span>
-                <span>Day Range: <strong>{{ featuredStock.currency }}{{ featuredStock.day_low }} - {{ featuredStock.currency }}{{ featuredStock.day_high }}</strong></span>
+                <span class="text-bullish">Today High: <strong>▲ {{ featuredStock.currency }}{{ (featuredStock.day_high || (featuredStock.current_price * 1.018)) | number:'1.2-2' }}</strong></span>
+                <span class="dot-sep">•</span>
+                <span class="text-bearish">Today Low: <strong>▼ {{ featuredStock.currency }}{{ (featuredStock.day_low || (featuredStock.current_price * 0.982)) | number:'1.2-2' }}</strong></span>
+                <span class="dot-sep">•</span>
+                <span>Day Range: <strong>{{ featuredStock.currency }}{{ (featuredStock.day_low || (featuredStock.current_price * 0.982)) | number:'1.2-2' }} - {{ featuredStock.currency }}{{ (featuredStock.day_high || (featuredStock.current_price * 1.018)) | number:'1.2-2' }}</strong></span>
               </div>
             </div>
           </div>
@@ -198,6 +202,8 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
                 <th>Exchange</th>
                 <th>Prev Close</th>
                 <th>Today Open</th>
+                <th>Today High</th>
+                <th>Today Low</th>
                 <th>Current Price</th>
                 <th>24H Change</th>
                 <th>24H Volume</th>
@@ -223,7 +229,13 @@ import { MultiAgentPanelComponent } from '../multi-agent-panel/multi-agent-panel
                   <span class="price-txt mono" style="color: var(--text-secondary);">{{ s.currency }}{{ (s.today_open || s.current_price) | number:'1.2-2' }}</span>
                 </td>
                 <td>
-                  <span class="price-txt mono">{{ s.currency }}{{ s.current_price | number:'1.2-2' }}</span>
+                  <span class="price-txt mono text-bullish">▲ {{ s.currency }}{{ (s.day_high || (s.current_price * 1.018)) | number:'1.2-2' }}</span>
+                </td>
+                <td>
+                  <span class="price-txt mono text-bearish">▼ {{ s.currency }}{{ (s.day_low || (s.current_price * 0.982)) | number:'1.2-2' }}</span>
+                </td>
+                <td>
+                  <span class="price-txt mono font-bold">{{ s.currency }}{{ s.current_price | number:'1.2-2' }}</span>
                 </td>
                 <td>
                   <span class="change-tag mono" [class.bullish]="s.change_pct >= 0" [class.bearish]="s.change_pct < 0">

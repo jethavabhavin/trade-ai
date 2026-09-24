@@ -55,6 +55,8 @@ export interface StockSummary {
   morning_signal?: MorningSignal;
   previous_close?: number;
   today_open?: number;
+  day_high?: number;
+  day_low?: number;
 }
 
 export interface StockDetail extends StockSummary {
@@ -306,3 +308,38 @@ export interface MultiAgentAnalysisResponse {
   };
   agent_execution_traces: AgentStepTrace[];
 }
+
+export interface ComparisonBarPoint {
+  time_label: string;
+  predicted_close: number;
+  actual_close: number;
+  lower_bound: number;
+  upper_bound: number;
+  variance_pct: number;
+  variance_amount: number;
+  within_confidence_band: boolean;
+}
+
+export interface PredictionComparisonResponse {
+  symbol: string;
+  name: string;
+  currency: string;
+  predicted_at: string;
+  predicted_base_price: number;
+  target_price: number;
+  stop_loss: number;
+  action: string;
+  confidence_score: number;
+  current_market_price: number;
+  price_delta: number;
+  price_delta_pct: number;
+  directional_accuracy_pct: number;
+  target_hit: boolean;
+  stop_loss_triggered: boolean;
+  status: 'TARGET_HIT' | 'ON_TRACK' | 'ACCURATE_TRACKING' | 'SL_TRIGGERED' | string;
+  model_name: string;
+  forecast_points: ForecastPoint[];
+  comparison_bars: ComparisonBarPoint[];
+  summary_text: string;
+}
+

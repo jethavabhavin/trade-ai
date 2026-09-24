@@ -465,7 +465,9 @@ class MarketDataService:
                     sparkline=detail.sparkline,
                     morning_signal=detail.morning_signal,
                     previous_close=detail.previous_close,
-                    today_open=detail.today_open
+                    today_open=detail.today_open,
+                    day_high=detail.day_high,
+                    day_low=detail.day_low
                 )
             except Exception as e:
                 logger.warning(f"Could not load live summary for {sym}: {e}")
