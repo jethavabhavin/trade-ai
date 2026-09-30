@@ -5,6 +5,7 @@ try:
     from backend.agents.market_data_agent import MarketDataAgent
     from backend.agents.sentiment_agent import SentimentAgent
     from backend.agents.quant_forecaster_agent import QuantForecasterAgent
+    from backend.agents.macro_contagion_agent import MacroContagionAgent
     from backend.agents.reasoning_agent import ReasoningAgent
     from backend.agents.fusion_risk_agent import FusionRiskAgent
     from backend.agents.output_agent import OutputAgent
@@ -13,6 +14,7 @@ except ImportError:
     from agents.market_data_agent import MarketDataAgent
     from agents.sentiment_agent import SentimentAgent
     from agents.quant_forecaster_agent import QuantForecasterAgent
+    from agents.macro_contagion_agent import MacroContagionAgent
     from agents.reasoning_agent import ReasoningAgent
     from agents.fusion_risk_agent import FusionRiskAgent
     from agents.output_agent import OutputAgent
@@ -20,7 +22,7 @@ except ImportError:
 class OrchestratorAgent(BaseAgent):
     """
     Orchestrator Agent:
-    Coordinates the 6-agent state graph pipeline for TradeAI.
+    Coordinates the 7-agent state graph pipeline for TradeAI.
     Manages workflow routing, data propagation, timing telemetry, and trace assembly.
     """
     def __init__(self):
@@ -28,6 +30,7 @@ class OrchestratorAgent(BaseAgent):
         self.market_agent = MarketDataAgent()
         self.sentiment_agent = SentimentAgent()
         self.quant_agent = QuantForecasterAgent()
+        self.macro_agent = MacroContagionAgent()
         self.reasoning_agent = ReasoningAgent()
         self.fusion_agent = FusionRiskAgent()
         self.output_agent = OutputAgent()
@@ -55,27 +58,32 @@ class OrchestratorAgent(BaseAgent):
         state["quant_data"] = quant_res.data
         traces.append(self._to_trace_dict(3, self.quant_agent.name, quant_res))
 
-        # Step 4: Qualitative Reasoning & Consistency Cross-Check (Gemini)
+        # Step 4: Zero-Hallucination Macro, Geopolitical & Peer Contagion Audit
+        macro_res = self.macro_agent.execute(state)
+        state["macro_contagion_data"] = macro_res.data
+        traces.append(self._to_trace_dict(4, self.macro_agent.name, macro_res))
+
+        # Step 5: Qualitative Reasoning & Consistency Cross-Check (Gemini)
         reasoning_res = self.reasoning_agent.execute(state)
         state["reasoning_data"] = reasoning_res.data
-        traces.append(self._to_trace_dict(4, self.reasoning_agent.name, reasoning_res))
+        traces.append(self._to_trace_dict(5, self.reasoning_agent.name, reasoning_res))
 
-        # Step 5: Fusion & Risk Synthesis (Gemini)
+        # Step 6: Fusion & Risk Synthesis (Gemini & Multi-Source Guardrails)
         fusion_res = self.fusion_agent.execute(state)
         state["fusion_data"] = fusion_res.data
-        traces.append(self._to_trace_dict(5, self.fusion_agent.name, fusion_res))
+        traces.append(self._to_trace_dict(6, self.fusion_agent.name, fusion_res))
 
-        # Step 6: Output & Visualization Compilation
+        # Step 7: Output & Visualization Compilation
         state["agent_traces"] = traces
         output_res = self.output_agent.execute(state)
-        traces.append(self._to_trace_dict(6, self.output_agent.name, output_res))
+        traces.append(self._to_trace_dict(7, self.output_agent.name, output_res))
 
         total_elapsed_ms = round((time.perf_counter() - pipeline_start) * 1000, 2)
         final_packet = output_res.data
         final_packet["total_pipeline_time_ms"] = total_elapsed_ms
 
         summary = (
-            f"Successfully executed 6-agent TradeAI pipeline for {symbol} in {total_elapsed_ms}ms. "
+            f"Successfully executed 7-agent TradeAI pipeline for {symbol} in {total_elapsed_ms}ms. "
             f"Action: {final_packet.get('final_signal', {}).get('action', 'BUY')}."
         )
 

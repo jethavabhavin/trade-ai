@@ -21,12 +21,17 @@ from backend.schemas.multi_agent_schemas import (
     MultiAgentRequest, AgentTraceItem, MultiAgentFinalSignal,
     MultiAgentAnalysisResponse, TimesFMAnalysisResponse
 )
+from backend.schemas.macro_schemas import (
+    DataIntegrityAudit, GovernanceAndFraudAssessment, SectorContagionAndPeerImpact,
+    GeopoliticalAndCrudePressure, MacroRatesAndForexFlight, EvidenceBasedRiskAudit,
+    QuantitativeAdjustments, FinalAuditSummary, MacroContagionAuditResponse
+)
 
 __all__ = [
     # Auth
     "UserProfile", "UserLoginRequest", "UserSignupRequest", "AuthResponse",
     # Forecast
-    "ForecastPoint", "MorningSignal",
+    "ForecastPoint", "MorningSignal", "ComparisonBarPoint", "PredictionComparisonResponse",
     # Market
     "PricePoint", "StockSummary", "StockDetail", "PortfolioPosition", "PortfolioSummary",
     # Wishlist
@@ -38,5 +43,9 @@ __all__ = [
     "AdminStatusUpdateRequest", "AdminStatsResponse", "AuditLogItem",
     # Multi-Agent
     "MultiAgentRequest", "AgentTraceItem", "MultiAgentFinalSignal",
-    "MultiAgentAnalysisResponse", "TimesFMAnalysisResponse"
+    "MultiAgentAnalysisResponse", "TimesFMAnalysisResponse",
+    # Macro & Contagion
+    "DataIntegrityAudit", "GovernanceAndFraudAssessment", "SectorContagionAndPeerImpact",
+    "GeopoliticalAndCrudePressure", "MacroRatesAndForexFlight", "EvidenceBasedRiskAudit",
+    "QuantitativeAdjustments", "FinalAuditSummary", "MacroContagionAuditResponse"
 ]

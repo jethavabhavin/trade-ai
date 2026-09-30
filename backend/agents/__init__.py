@@ -2,6 +2,7 @@ from backend.agents.base_agent import BaseAgent, AgentResult
 from backend.agents.market_data_agent import MarketDataAgent
 from backend.agents.quant_forecaster_agent import QuantForecasterAgent
 from backend.agents.sentiment_agent import SentimentAgent
+from backend.agents.macro_contagion_agent import MacroContagionAgent
 from backend.agents.reasoning_agent import ReasoningAgent
 from backend.agents.fusion_risk_agent import FusionRiskAgent
 from backend.agents.output_agent import OutputAgent
@@ -17,6 +18,7 @@ __all__ = [
     "MarketDataAgent",
     "QuantForecasterAgent",
     "SentimentAgent",
+    "MacroContagionAgent",
     "ReasoningAgent",
     "FusionRiskAgent",
     "OutputAgent",

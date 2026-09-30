@@ -175,7 +175,8 @@ def test_multi_agent_pipeline():
     assert len(data["timesfm_forecast"]["forecast_points"]) == 7
     assert "gemini_reasoning" in data
     assert "agent_execution_traces" in data
-    assert len(data["agent_execution_traces"]) == 6 # All 6 agents executed
+    assert len(data["agent_execution_traces"]) == 7 # All 7 agents executed (including Macro & Contagion Auditor)
+    assert "macro_contagion_audit" in data
 
 def test_market_symbols_db_and_sync():
     """Verify that market symbols are stored in DB, fetched dynamically, and can be synced."""

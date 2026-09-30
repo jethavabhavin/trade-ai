@@ -14,7 +14,7 @@ try:
     from backend.db_models import UserDB, PredictionDB
     from backend.database import get_db
     from backend.auth_utils import get_current_user, get_optional_current_user
-    from backend.agents import OrchestratorAgent, orchestrator, ForecastEngine
+    from backend.agents import OrchestratorAgent, orchestrator, ForecastEngine, MacroContagionAgent
 except ImportError:
     from models import (
         MorningSignal, ForecastPoint, ComparisonBarPoint, PredictionComparisonResponse,
@@ -24,7 +24,7 @@ except ImportError:
     from db_models import UserDB, PredictionDB
     from database import get_db
     from auth_utils import get_current_user, get_optional_current_user
-    from agents import OrchestratorAgent, orchestrator, ForecastEngine
+    from agents import OrchestratorAgent, orchestrator, ForecastEngine, MacroContagionAgent
 
 router = APIRouter(prefix="/api/forecast", tags=["Forecast"])
 
@@ -97,19 +97,48 @@ def predict_with_timesfm(
         historical_closes=closes
     )
 
+@router.get("/{symbol}/macro-contagion-audit")
+def get_macro_contagion_audit(
+    symbol: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
+    """
+    Executes an evidence-based, zero-hallucination cross-asset macro,
+    geopolitical risk, and sector-peer contagion audit for the given symbol.
+    """
+    sym_clean = symbol.upper().strip()
+    stock = db.get_stock_detail(sym_clean)
+    
+    state = {
+        "symbol": sym_clean,
+        "market_data": {
+            "symbol": sym_clean,
+            "company_name": stock.name if stock else sym_clean,
+            "current_price": stock.current_price if stock else 100.0,
+            "currency": "₹",
+            "exchange": "NSE"
+        }
+    }
+    agent = MacroContagionAgent()
+    result = agent.execute(state)
+    if result.status == "ERROR":
+        raise HTTPException(status_code=500, detail=f"Macro Contagion Audit failure: {result.error}")
+    return result.data
+
 @router.post("/multi-agent-analyze", response_model=MultiAgentAnalysisResponse)
 def run_multi_agent_analysis(
     req: MultiAgentRequest,
     current_user: UserDB = Depends(get_current_user)
 ):
     """
-    Executes the full 6-agent state graph pipeline:
+    Executes the full 7-agent state graph pipeline:
     1. Market Data Agent (OHLCV & Technicals)
     2. News & Sentiment Agent (Google Gemini)
     3. Quant Forecaster Agent (Google TimesFM 3.0)
-    4. Reasoning Agent (Gemini Consistency Validation)
-    5. Fusion & Risk Agent (Signal Reconciliation & Risk Guardrails)
-    6. Output Agent (Chart Channels & Executive Summary)
+    4. Macro & Peer Contagion Auditor (Zero-Hallucination Ground-Truth Engine)
+    5. Reasoning Agent (Gemini Consistency Validation)
+    6. Fusion & Risk Agent (Signal Reconciliation, Covariate Scaling & Risk Guardrails)
+    7. Output Agent (Chart Channels, Macro Audit & Executive Summary)
     """
     state = {
         "symbol": req.symbol.upper(),

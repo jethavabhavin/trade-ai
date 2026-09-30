@@ -9,7 +9,8 @@ class OutputAgent(BaseAgent):
     """
     Output Agent:
     Compiles final structured multi-agent intelligence packet, candlestick series, 
-    quantile channels, plain-language executive rationale, and agent step trace logs.
+    quantile channels, zero-hallucination macro audit, plain-language executive rationale,
+    and agent step trace logs.
     """
     def __init__(self):
         super().__init__(name="Output Agent")
@@ -20,6 +21,7 @@ class OutputAgent(BaseAgent):
         sentiment_data = state.get("sentiment_data", {})
         quant_data = state.get("quant_data", {})
         reasoning_data = state.get("reasoning_data", {})
+        macro_data = state.get("macro_contagion_data", {})
         fusion_data = state.get("fusion_data", {})
         traces = state.get("agent_traces", [])
 
@@ -34,13 +36,21 @@ class OutputAgent(BaseAgent):
         risk_level = fusion_data.get("risk_level", "LOW")
 
         # Compile Comprehensive Executive Rationale
-        executive_summary = (
-            f"TradeAI Multi-Agent Pipeline issued a **{action}** recommendation for **{company_name} ({symbol})** "
-            f"at {currency}{current_price:.2f}. Google TimesFM 3.0 foundation model projects forward expansion toward "
-            f"**{currency}{target_price:.2f}** ({expected_roi:+.2f}% projected ROI) with stop-loss protection at "
-            f"**{currency}{stop_loss:.2f}**. Gemini qualitative reasoning confirms aligned institutional volume accumulation, "
-            f"delivering an overall confidence score of **{confidence}%**."
-        )
+        if action == "AVOID_SYSTEMIC_RISK":
+            veto_reason = fusion_data.get("risk_flags", ["Systemic risk trigger"])[0]
+            executive_summary = (
+                f"TradeAI Multi-Agent Pipeline issued an **AVOID_SYSTEMIC_RISK** veto for **{company_name} ({symbol})** "
+                f"at {currency}{current_price:.2f}. Chief Risk Officer audit flagged: {veto_reason}. "
+                f"All speculative positions are halted pending resolution of verified governance or contagion headwinds."
+            )
+        else:
+            executive_summary = (
+                f"TradeAI Multi-Agent Pipeline issued a **{action}** recommendation for **{company_name} ({symbol})** "
+                f"at {currency}{current_price:.2f}. Google TimesFM 3.0 foundation model projects forward expansion toward "
+                f"**{currency}{target_price:.2f}** ({expected_roi:+.2f}% projected ROI) with stop-loss protection at "
+                f"**{currency}{stop_loss:.2f}**. Zero-hallucination macro and peer contagion audit confirms grounded risk profile, "
+                f"delivering an overall conviction confidence score of **{confidence}%**."
+            )
 
         output_packet = {
             "symbol": symbol,
@@ -71,6 +81,7 @@ class OutputAgent(BaseAgent):
                 "forecast_points": quant_data.get("forecast_points", []),
                 "neural_reasoning": quant_data.get("neural_reasoning", "")
             },
+            "macro_contagion_audit": macro_data,
             "gemini_reasoning": {
                 "critique": reasoning_data.get("reasoning_critique", ""),
                 "alignment_status": reasoning_data.get("alignment_status", "ALIGNED_BULLISH"),
@@ -82,7 +93,10 @@ class OutputAgent(BaseAgent):
                 "risk_flags": fusion_data.get("risk_flags", []),
                 "licensing_disclaimer": fusion_data.get("licensing_disclaimer", ""),
                 "volatility_pct": market_data.get("technical_indicators", {}).get("volatility_pct", 1.8),
-                "rsi": market_data.get("technical_indicators", {}).get("rsi", 45.0)
+                "rsi": market_data.get("technical_indicators", {}).get("rsi", 45.0),
+                "trade_veto_activated": fusion_data.get("fused_metrics", {}).get("trade_veto_activated", False),
+                "composite_macro_score": fusion_data.get("fused_metrics", {}).get("composite_macro_score", 0.0),
+                "peer_drag_factor": fusion_data.get("fused_metrics", {}).get("peer_drag_factor", 0.0)
             },
             "agent_execution_traces": traces
         }

@@ -33,7 +33,8 @@ from backend.schemas import (
     MultiAgentRequest,
     AgentTraceItem,
     MultiAgentFinalSignal,
-    MultiAgentAnalysisResponse
+    MultiAgentAnalysisResponse,
+    MacroContagionAuditResponse
 )
 
 __all__ = [
@@ -65,5 +66,6 @@ __all__ = [
     "MultiAgentRequest",
     "AgentTraceItem",
     "MultiAgentFinalSignal",
-    "MultiAgentAnalysisResponse"
+    "MultiAgentAnalysisResponse",
+    "MacroContagionAuditResponse"
 ]

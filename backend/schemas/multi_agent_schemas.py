@@ -37,6 +37,7 @@ class MultiAgentAnalysisResponse(BaseModel):
     total_pipeline_time_ms: float
     final_signal: MultiAgentFinalSignal
     timesfm_forecast: Dict[str, Any]
+    macro_contagion_audit: Optional[Dict[str, Any]] = None
     gemini_reasoning: Dict[str, Any]
     risk_assessment: Dict[str, Any]
     agent_execution_traces: List[AgentTraceItem]
