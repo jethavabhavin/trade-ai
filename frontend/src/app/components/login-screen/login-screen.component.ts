@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -753,7 +754,11 @@ export class LoginScreenComponent {
   signupEmail = '';
   signupPassword = '';
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   quickLogin(role: 'admin' | 'trader'): void {
     if (role === 'admin') {
@@ -773,6 +778,7 @@ export class LoginScreenComponent {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
+    this.cdr.markForCheck();
 
     this.authService.login({
       email: this.loginEmail,
@@ -780,11 +786,18 @@ export class LoginScreenComponent {
     }).subscribe({
       next: (res) => {
         this.isLoading = false;
-        this.successMessage = `Access Granted! Welcome ${res.user.full_name}.`;
+        this.successMessage = `Access Granted! Welcome ${res.user.full_name}. Redirecting to Dashboard...`;
+        this.cdr.markForCheck();
+        setTimeout(() => {
+          this.router.navigate(['/']).then(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }, 300);
       },
       error: (err) => {
         this.isLoading = false;
         this.errorMessage = err?.error?.detail || 'Invalid email or password. Please try again.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -798,6 +811,7 @@ export class LoginScreenComponent {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
+    this.cdr.markForCheck();
 
     this.authService.signup({
       username: this.signupUsername,
@@ -808,10 +822,17 @@ export class LoginScreenComponent {
       next: (res) => {
         this.isLoading = false;
         this.successMessage = `Account provisioned successfully! Loading terminal...`;
+        this.cdr.markForCheck();
+        setTimeout(() => {
+          this.router.navigate(['/']).then(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }, 300);
       },
       error: (err) => {
         this.isLoading = false;
         this.errorMessage = err?.error?.detail || 'Registration failed. Please check inputs.';
+        this.cdr.markForCheck();
       }
     });
   }

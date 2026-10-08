@@ -1,10 +1,10 @@
 <!-- When NOT logged in: User ONLY sees the dedicated full-screen Login / Auth Screen -->
-<div *ngIf="!currentUser">
+<div *ngIf="!currentUser()">
   <app-login-screen></app-login-screen>
 </div>
 
 <!-- When LOGGED IN: User accesses the entire trading terminal application -->
-<div *ngIf="currentUser">
+<div *ngIf="currentUser()">
   <!-- Global Header with Live Ticker -->
   <app-header (toggleMobileMenu)="toggleMobileSidebar()"></app-header>
 

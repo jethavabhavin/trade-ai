@@ -24,26 +24,44 @@ import {
 export class TradeApiService {
   private readonly baseUrl = 'http://localhost:8000/api';
 
+  private getInitialUser(): UserProfile {
+    try {
+      const stored = localStorage.getItem('tradeai_user_profile');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_) {}
+    return {
+      id: 'usr_demo_01',
+      username: 'trader_pro',
+      email: 'trader@tradeai.app',
+      full_name: 'Alex Vance',
+      role: 'user',
+      is_active: true,
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      risk_tolerance: 'AGGRESSIVE',
+      morning_alert_time: '08:30 AM',
+      enable_push_notifications: true,
+      watchlist: ['TATASIL', 'NIFTY50', 'RELIANCE', 'AAPL', 'GOLDBEES']
+    };
+  }
+
   // Reactive State
-  private currentUserSubject = new BehaviorSubject<UserProfile>({
-    id: 'usr_demo_01',
-    username: 'trader_pro',
-    email: 'trader@tradeai.app',
-    full_name: 'Alex Vance',
-    role: 'user',
-    is_active: true,
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    risk_tolerance: 'AGGRESSIVE',
-    morning_alert_time: '08:30 AM',
-    enable_push_notifications: true,
-    watchlist: ['TATASIL', 'NIFTY50', 'RELIANCE', 'AAPL', 'GOLDBEES']
-  });
+  private currentUserSubject = new BehaviorSubject<UserProfile>(this.getInitialUser());
   public currentUser$ = this.currentUserSubject.asObservable();
 
   private searchModalOpenSubject = new BehaviorSubject<boolean>(false);
   public searchModalOpen$ = this.searchModalOpenSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('tradeai_auth_change', (e: any) => {
+        if (e?.detail) {
+          this.currentUserSubject.next(e.detail);
+        }
+      });
+    }
+  }
 
   toggleSearchModal(open?: boolean): void {
     if (open !== undefined) {

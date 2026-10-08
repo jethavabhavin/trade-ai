@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap, catchError, of, throwError } from 'rxjs';
 import { UserProfile, AuthResponse } from '../models/trade.models';
@@ -13,6 +13,7 @@ export class AuthService {
 
   private currentUserSubject = new BehaviorSubject<UserProfile | null>(this.getStoredUser());
   public currentUser$ = this.currentUserSubject.asObservable();
+  public readonly currentUser = signal<UserProfile | null>(this.getStoredUser());
 
   private authModalOpenSubject = new BehaviorSubject<{ open: boolean; tab: 'login' | 'signup' }>({
     open: false,
@@ -72,6 +73,7 @@ export class AuthService {
     return this.http.get<UserProfile>(`${this.baseUrl}/profile`).pipe(
       tap(user => {
         this.currentUserSubject.next(user);
+        this.currentUser.set(user);
         localStorage.setItem(this.userKey, JSON.stringify(user));
       })
     );
@@ -81,6 +83,7 @@ export class AuthService {
     return this.http.put<UserProfile>(`${this.baseUrl}/profile`, profile).pipe(
       tap(user => {
         this.currentUserSubject.next(user);
+        this.currentUser.set(user);
         localStorage.setItem(this.userKey, JSON.stringify(user));
       })
     );
@@ -106,11 +109,12 @@ export class AuthService {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
     this.currentUserSubject.next(null);
-    this.openAuthModal('login');
+    this.currentUser.set(null);
   }
 
   public setCurrentUser(user: UserProfile): void {
     this.currentUserSubject.next(user);
+    this.currentUser.set(user);
     localStorage.setItem(this.userKey, JSON.stringify(user));
   }
 
@@ -119,6 +123,10 @@ export class AuthService {
       localStorage.setItem(this.tokenKey, res.token);
       localStorage.setItem(this.userKey, JSON.stringify(res.user));
       this.currentUserSubject.next(res.user);
+      this.currentUser.set(res.user);
+      try {
+        window.dispatchEvent(new CustomEvent('tradeai_auth_change', { detail: res.user }));
+      } catch (_) {}
       this.closeAuthModal();
     }
   }

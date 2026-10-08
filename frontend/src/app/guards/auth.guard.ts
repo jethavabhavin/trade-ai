@@ -10,7 +10,9 @@ export const authGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  // Not logged in -> open login modal and block navigation
-  authService.openAuthModal('login');
+  // Not logged in -> only open popup modal if navigating to a specific sub-route from within app
+  if (state.url && state.url !== '/' && state.url !== '') {
+    authService.openAuthModal('login');
+  }
   return false;
 };
