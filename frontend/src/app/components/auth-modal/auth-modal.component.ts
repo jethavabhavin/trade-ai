@@ -1,6 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
@@ -549,7 +550,11 @@ export class AuthModalComponent implements OnInit, OnDestroy {
 
   private sub?: Subscription;
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.sub = this.authService.authModalOpen$.subscribe(state => {
@@ -557,6 +562,7 @@ export class AuthModalComponent implements OnInit, OnDestroy {
       this.activeTab = state.tab;
       this.errorMessage = '';
       this.successMessage = '';
+      this.cdr.markForCheck();
     });
   }
 
@@ -566,6 +572,7 @@ export class AuthModalComponent implements OnInit, OnDestroy {
 
   close(): void {
     this.authService.closeAuthModal();
+    this.cdr.markForCheck();
   }
 
   closeOnBackdrop(e: MouseEvent): void {
@@ -590,6 +597,7 @@ export class AuthModalComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
+    this.cdr.markForCheck();
 
     this.authService.login({
       email: this.loginEmail,
@@ -597,14 +605,17 @@ export class AuthModalComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (res) => {
         this.isLoading = false;
-        this.successMessage = `Welcome back, ${res.user.full_name}!`;
+        this.successMessage = `Welcome back, ${res.user.full_name}! Redirecting...`;
+        this.cdr.markForCheck();
         setTimeout(() => {
           this.close();
-        }, 600);
+          this.router.navigate(['/']);
+        }, 400);
       },
       error: (err) => {
         this.isLoading = false;
         this.errorMessage = err?.error?.detail || 'Invalid email or password. Please try again.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -618,6 +629,7 @@ export class AuthModalComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
+    this.cdr.markForCheck();
 
     this.authService.signup({
       username: this.signupUsername,
@@ -627,14 +639,17 @@ export class AuthModalComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (res) => {
         this.isLoading = false;
-        this.successMessage = `Account created successfully! Welcome, ${res.user.full_name}.`;
+        this.successMessage = `Account created successfully! Welcome, ${res.user.full_name}. Redirecting...`;
+        this.cdr.markForCheck();
         setTimeout(() => {
           this.close();
-        }, 800);
+          this.router.navigate(['/']);
+        }, 400);
       },
       error: (err) => {
         this.isLoading = false;
         this.errorMessage = err?.error?.detail || 'Failed to create account. Please check your inputs.';
+        this.cdr.markForCheck();
       }
     });
   }

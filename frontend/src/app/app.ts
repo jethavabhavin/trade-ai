@@ -1,6 +1,6 @@
-import { Component, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { HeaderComponent } from './components/header/header.component';
 import { NavMenuComponent } from './components/nav-menu/nav-menu.component';
@@ -28,15 +28,28 @@ import { UserProfile } from './models/trade.models';
   styleUrl: './app.css'
 })
 export class App implements OnInit, OnDestroy {
+  public authService = inject(AuthService);
+  private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
+
   mobileSidebarOpen = signal(false);
-  currentUser: UserProfile | null = null;
+  currentUser = signal<UserProfile | null>(this.authService.currentUser());
   private authSub?: Subscription;
 
-  constructor(private authService: AuthService) {}
-
   ngOnInit(): void {
+    // Sync initial state from AuthService
+    this.currentUser.set(this.authService.currentUser());
+
     this.authSub = this.authService.currentUser$.subscribe(u => {
-      this.currentUser = u;
+      this.currentUser.set(u);
+      this.cdr.markForCheck();
+      if (u) {
+        // User logged in: ensure router activates dashboard if needed
+        const url = this.router.url;
+        if (!url || url === '/' || url === '/login' || !this.router.navigated) {
+          this.router.navigate(['/']);
+        }
+      }
     });
   }
 
